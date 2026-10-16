@@ -1,0 +1,23 @@
+{
+  "status": 200,
+  "body": {
+    "lists": [
+      {
+        "id": 1,
+        "name": "Groceries",
+        "color": "ff9900",
+        "owner": "lori",
+        "role": "owner",
+        "lastChange": 1792152001000
+      },
+      {
+        "id": 2,
+        "name": "Hardware",
+        "color": "3366cc",
+        "owner": "lori",
+        "role": "owner",
+        "lastChange": 1792152002000
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "body": {
+    "lists": [
+      {
+        "id": 1,
+        "name": "Weekly Groceries",
+        "color": "ff9900",
+        "owner": "lori",
+        "role": "edit",
+        "lastChange": 1792152001000
+      }
+    ]
+  }
+}

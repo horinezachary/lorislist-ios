@@ -1,0 +1,13 @@
+{
+  "status": 201,
+  "body": {
+    "items": [
+      {
+        "id": 1,
+        "name": "Milk",
+        "count": 2,
+        "checked": false
+      }
+    ]
+  }
+}

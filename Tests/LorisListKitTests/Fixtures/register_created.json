@@ -1,0 +1,15 @@
+{
+  "status": 201,
+  "body": {
+    "user": {
+      "username": "lori",
+      "firstName": "Lori",
+      "lastName": "Horine",
+      "email": "lori@example.com"
+    },
+    "accessToken": "Mbe6H3-nebroO2NUV9tkbVz3_3LU90HA2fsjq29NPOk",
+    "refreshToken": "vK8VhnmjRS-6sPMha0uqNx3zQRkCgTdMLR0jNuzAWsQ",
+    "tokenType": "Bearer",
+    "expiresIn": 3600
+  }
+}

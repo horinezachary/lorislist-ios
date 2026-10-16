@@ -1,0 +1,9 @@
+{
+  "status": 403,
+  "body": {
+    "error": {
+      "code": "forbidden",
+      "message": "You only have view access to this list."
+    }
+  }
+}

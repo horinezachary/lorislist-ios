@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": "invalid_request",
+      "message": "Please enter a valid email address."
+    }
+  }
+}

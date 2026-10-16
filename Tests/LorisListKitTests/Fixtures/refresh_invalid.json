@@ -1,0 +1,9 @@
+{
+  "status": 401,
+  "body": {
+    "error": {
+      "code": "invalid_refresh_token",
+      "message": "Please sign in again."
+    }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "status": 429,
+  "body": {
+    "error": {
+      "code": "too_many_requests",
+      "message": "Too many attempts. Please wait a few minutes and try again."
+    }
+  },
+  "headers": {
+    "Retry-After": "900"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "status": 409,
+  "body": {
+    "error": {
+      "code": "email_in_use",
+      "message": "Email is already in use!"
+    }
+  }
+}

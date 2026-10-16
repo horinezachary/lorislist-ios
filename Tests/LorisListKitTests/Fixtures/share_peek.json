@@ -1,0 +1,15 @@
+{
+  "status": 200,
+  "body": {
+    "share": {
+      "key": "afb7e71ba6179c2a785abd25d648ab6a",
+      "permission": "edit",
+      "list": {
+        "id": 1,
+        "name": "Weekly Groceries",
+        "color": "ff9900",
+        "owner": "lori"
+      }
+    }
+  }
+}

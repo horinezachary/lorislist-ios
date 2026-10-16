@@ -1,0 +1,17 @@
+{
+  "status": 200,
+  "body": {
+    "colors": [
+      {
+        "id": 1,
+        "hex": "ff9900",
+        "name": "Orange"
+      },
+      {
+        "id": 2,
+        "hex": "3366cc",
+        "name": "Blue"
+      }
+    ]
+  }
+}

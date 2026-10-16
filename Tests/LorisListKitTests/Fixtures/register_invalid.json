@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": "invalid_request",
+      "message": "username must be 1 to 50 letters, numbers or . _ @ + -"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "status": 400,
+  "body": {
+    "error": {
+      "code": "invalid_request",
+      "message": "Add ?checked=true to remove the crossed-off items."
+    }
+  }
+}

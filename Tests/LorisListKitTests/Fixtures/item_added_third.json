@@ -1,0 +1,25 @@
+{
+  "status": 201,
+  "body": {
+    "items": [
+      {
+        "id": 1,
+        "name": "Milk",
+        "count": 2,
+        "checked": false
+      },
+      {
+        "id": 2,
+        "name": "Bread",
+        "count": null,
+        "checked": false
+      },
+      {
+        "id": 3,
+        "name": "Eggs",
+        "count": 12,
+        "checked": false
+      }
+    ]
+  }
+}

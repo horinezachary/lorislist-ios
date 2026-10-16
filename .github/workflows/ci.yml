@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  kit-tests:
+    name: Swift package tests
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test LorisListKit
+        run: swift test
+
+  build-app:
+    name: Build the app
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate the Xcode project
+        run: xcodegen generate
+      - name: Build for the simulator
+        run: |
+          xcodebuild build \
+            -project LorisList.xcodeproj \
+            -scheme LorisList \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO

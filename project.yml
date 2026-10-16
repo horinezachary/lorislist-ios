@@ -1,0 +1,58 @@
+# Xcode project definition for XcodeGen (https://github.com/yonaskolb/XcodeGen).
+# Generate the project with:   brew install xcodegen && xcodegen generate
+# then open LorisList.xcodeproj. The generated project is not committed.
+name: LorisList
+
+options:
+  bundleIdPrefix: dev.horine
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+packages:
+  LorisListKit:
+    path: .
+
+targets:
+  LorisList:
+    type: application
+    platform: iOS
+    sources:
+      - path: LorisList
+    dependencies:
+      - package: LorisListKit
+        product: LorisListKit
+    info:
+      path: LorisList/Info.plist
+      properties:
+        CFBundleDisplayName: Lori's List
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        # Where the API lives. Point a debug build at a development server by changing this.
+        LorisListAPIBaseURL: https://lorislist.horinetech.com/api/v1
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # The app only talks HTTPS to the Lori's List server, which needs no export paperwork.
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.horine.lorislist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ENABLE_PREVIEWS: YES

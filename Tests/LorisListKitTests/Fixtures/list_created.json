@@ -1,0 +1,13 @@
+{
+  "status": 201,
+  "body": {
+    "list": {
+      "id": 1,
+      "name": "Groceries",
+      "color": "ff9900",
+      "owner": "lori",
+      "role": "owner",
+      "lastChange": 1792152001000
+    }
+  }
+}

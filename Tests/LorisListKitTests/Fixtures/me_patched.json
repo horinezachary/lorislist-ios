@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "body": {
+    "user": {
+      "username": "lori",
+      "firstName": "Lorraine",
+      "lastName": "Horine",
+      "email": "lori@example.com",
+      "showTips": false
+    }
+  }
+}

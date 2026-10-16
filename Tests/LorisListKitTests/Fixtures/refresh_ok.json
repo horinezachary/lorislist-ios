@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "body": {
+    "accessToken": "QXJsXT0kdNH4sIqoE1oyssMadANZWD0NK7eSMI8qbeg",
+    "tokenType": "Bearer",
+    "expiresIn": 3600
+  }
+}

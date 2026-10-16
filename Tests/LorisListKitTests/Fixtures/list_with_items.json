@@ -1,0 +1,34 @@
+{
+  "status": 200,
+  "body": {
+    "list": {
+      "id": 1,
+      "name": "Groceries",
+      "color": "ff9900",
+      "owner": "lori",
+      "role": "owner",
+      "lastChange": 1792152001000,
+      "canEdit": true,
+      "items": [
+        {
+          "id": 1,
+          "name": "Milk",
+          "count": 2,
+          "checked": true
+        },
+        {
+          "id": 2,
+          "name": "Bread",
+          "count": null,
+          "checked": false
+        },
+        {
+          "id": 3,
+          "name": "Eggs",
+          "count": 12,
+          "checked": false
+        }
+      ]
+    }
+  }
+}
