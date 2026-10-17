@@ -151,6 +151,22 @@ public actor APIClient {
         try await sendEmpty(Endpoint(method: "POST", path: "/auth/password-reset", body: body, authenticated: false))
     }
 
+    /// Is the emailed reset link still good? Throws `.notFound` when it has expired or was used.
+    public func checkPasswordReset(token: String) async throws {
+        try await sendEmpty(Endpoint(
+            method: "GET", path: "/auth/password-reset/\(Self.pathSafe(token))", authenticated: false))
+    }
+
+    /// Sets a new password from an emailed reset link. The server signs the account out
+    /// everywhere, so any session on this phone is over too.
+    public func completePasswordReset(token: String, newPassword: String) async throws {
+        let body = try json(PasswordBody(password: newPassword))
+        try await sendEmpty(Endpoint(
+            method: "PUT", path: "/auth/password-reset/\(Self.pathSafe(token))", body: body, authenticated: false))
+        // The server ends every session when a password is reset, this phone's included.
+        clearLocalSession()
+    }
+
     // MARK: Account
 
     public func me() async throws -> User {
@@ -253,14 +269,14 @@ public actor APIClient {
     }
 
     public func invitation(key: String) async throws -> ShareInvitation {
-        let reply: ShareReply = try await send(Endpoint(method: "GET", path: "/shares/\(key)"))
+        let reply: ShareReply = try await send(Endpoint(method: "GET", path: "/shares/\(Self.pathSafe(key))"))
         return reply.share
     }
 
     /// Accepting returns the list; declining returns nil.
     public func respond(toInvitation key: String, accept: Bool) async throws -> ListSummary? {
         let body = try json(ShareResponseBody(response: accept ? "accept" : "deny"))
-        let (data, http) = try await execute(Endpoint(method: "POST", path: "/shares/\(key)", body: body))
+        let (data, http) = try await execute(Endpoint(method: "POST", path: "/shares/\(Self.pathSafe(key))", body: body))
         guard http.statusCode == 200 else { return nil }
         return try decode(ListReply.self, from: data).list
     }
@@ -275,6 +291,14 @@ extension APIClient {
         var query: [URLQueryItem] = []
         var body: Data?
         var authenticated: Bool = true
+    }
+
+    /// Keys and tokens from links are letters and digits, but they come from outside the app,
+    /// so anything else is escaped rather than trusted to stay inside one path segment.
+    static func pathSafe(_ text: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-._~")
+        return text.addingPercentEncoding(withAllowedCharacters: allowed) ?? ""
     }
 
     private func json<B: Encodable>(_ value: B) throws -> Data {
@@ -472,6 +496,7 @@ private struct RegisterBody: Encodable {
 
 private struct RefreshBody: Encodable { let refreshToken: String }
 private struct EmailBody: Encodable { let email: String }
+private struct PasswordBody: Encodable { let password: String }
 
 /// Optional fields that are nil are left out of the JSON, which is what PATCH needs.
 private struct ProfilePatch: Encodable {

@@ -29,6 +29,14 @@ targets:
     dependencies:
       - package: LorisListKit
         product: LorisListKit
+    # Lets links to the website's /share/... and /passwordReset/... pages open in the app.
+    # Needs a paid Apple Developer account, and the site must serve the matching
+    # apple-app-site-association file (see the server's appLinks setting).
+    entitlements:
+      path: LorisList/LorisList.entitlements
+      properties:
+        com.apple.developer.associated-domains:
+          - applinks:lorislist.horinetech.com
     info:
       path: LorisList/Info.plist
       properties:

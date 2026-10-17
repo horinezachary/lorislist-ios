@@ -81,12 +81,26 @@ These were found by running the server's code, and the client depends on them:
   not fit on a phone.
 - Crossed-off items are grey with a line through them, as on the website.
 
+## Links from emails
+
+Invitation (`/share/<key>`) and password-reset (`/passwordReset/<token>`) links open in the app
+instead of Safari. Two things make that work, and both need you:
+
+1. **The server vouches for the app.** Put your Apple Team ID in the server's `config.js`:
+   `appLinks.ios.appIds: ['ABCDE12345.dev.horine.lorislist']` (Team ID, a dot, the bundle id). The
+   server then serves `/.well-known/apple-app-site-association`.
+2. **The app declares the domain.** `project.yml` adds the Associated Domains entitlement
+   `applinks:lorislist.horinetech.com`. Signing with it needs a paid Apple Developer account;
+   a free account can't use that capability on a device.
+
+Until both are in place the links keep opening the website, which still works. iOS only checks the
+association file when the app is installed, so after changing it, delete and reinstall the app to
+test. Parsing lives in `AppLink.swift` (tested); the screens are in `Features/Auth/LinkSheets.swift`.
+An invitation opened while signed out waits: the sign-in screen says so and the invitation appears
+after sign-in.
+
 ## Not done yet
 
-- **Opening invitation and password-reset links in the app.** The emails link to the website. The API
-  is ready for it (`GET /shares/{key}`, `PUT /auth/password-reset/{token}`, and the client already has
-  `invitation(key:)` and `respond(toInvitation:accept:)`), but the app needs universal links: an
-  `apple-app-site-association` file on the server and the Associated Domains capability.
 - **Live updates.** The API has no push yet. The app reloads when you open it, pull to refresh, and
   when it returns to the foreground.
 - **Offline use.** Lists are fetched, not stored on the phone.
