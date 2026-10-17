@@ -1,0 +1,8 @@
+retry: 5000
+
+event: changes
+data: {"revision":"8fdd6a9274a8504f","lists":[{"id":1,"revision":"88e4deed13ec48fb"}]}
+
+event: changes
+data: {"revision":"c9e6049e8aad2b16","lists":[{"id":1,"revision":"74d0758d2d6bb897"}]}
+

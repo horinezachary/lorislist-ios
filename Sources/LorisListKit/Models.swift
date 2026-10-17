@@ -105,17 +105,21 @@ public struct ListDetail: Decodable, Equatable, Identifiable, Sendable {
     public var summary: ListSummary
     public var canEdit: Bool
     public var items: [ListItem]
+    /// The server's fingerprint of this list as fetched (what `GET /changes` reports for it).
+    /// Nil from an older server.
+    public var revision: String?
 
     public var id: Int { summary.id }
 
-    public init(summary: ListSummary, canEdit: Bool, items: [ListItem]) {
+    public init(summary: ListSummary, canEdit: Bool, items: [ListItem], revision: String? = nil) {
         self.summary = summary
         self.canEdit = canEdit
         self.items = items
+        self.revision = revision
     }
 
     private enum CodingKeys: String, CodingKey {
-        case canEdit, items
+        case canEdit, items, revision
     }
 
     public init(from decoder: Decoder) throws {
@@ -123,6 +127,7 @@ public struct ListDetail: Decodable, Equatable, Identifiable, Sendable {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         canEdit = try c.decode(Bool.self, forKey: .canEdit)
         items = try c.decode([ListItem].self, forKey: .items)
+        revision = try? c.decodeIfPresent(String.self, forKey: .revision)
     }
 
     public var checkedCount: Int { items.filter { $0.checked }.count }
@@ -182,6 +187,28 @@ public struct ShareInvitation: Decodable, Equatable, Sendable {
     public let key: String
     public var permission: SharePermission
     public var list: SharedList
+}
+
+/// A fingerprint of everything the person can see (GET /changes, and each message of the live
+/// stream). A list whose fingerprint differs from the one stored with the cached copy has changed.
+public struct Digest: Decodable, Equatable, Sendable {
+    public struct Entry: Decodable, Equatable, Sendable {
+        public let id: Int
+        public let revision: String
+
+        public init(id: Int, revision: String) {
+            self.id = id
+            self.revision = revision
+        }
+    }
+
+    public let revision: String
+    public let lists: [Entry]
+
+    public init(revision: String, lists: [Entry]) {
+        self.revision = revision
+        self.lists = lists
+    }
 }
 
 // MARK: - Dates

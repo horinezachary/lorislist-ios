@@ -48,6 +48,7 @@ Sources/LorisListKit/   Everything that is not UI. A Swift package, testable on 
   TokenStore.swift        Keychain storage for the two sign-in tokens
   ListLogic.swift         Mine/shared split, colours, input checks, suggestions
   APIError.swift          Error codes and the text shown to people
+  Sync/                   Saved copy, offline change queue, sync, live updates
 LorisList/              The SwiftUI app
   App/                    App entry, session state, navigation
   Design/                 Colours, cards, buttons, form pieces (the website's look)
@@ -99,8 +100,31 @@ test. Parsing lives in `AppLink.swift` (tested); the screens are in `Features/Au
 An invitation opened while signed out waits: the sign-in screen says so and the invitation appears
 after sign-in.
 
+## Offline use and live updates
+
+The app keeps a copy of your lists on the phone, so they open without a connection.
+
+- **What works offline:** adding items, crossing them off or putting them back, removing them, and
+  "Clear". The change shows at once and is sent when the connection returns. Creating, renaming,
+  deleting and sharing lists need a connection.
+- **Waiting changes** are saved on the phone, so they survive closing the app. Each is sent with an
+  `Idempotency-Key`, so a retry after a dropped connection never adds an item twice. A banner shows
+  "You're offline" and how many changes are waiting.
+- **If the server refuses a waiting change** (the list was deleted, or you lost access) it is dropped
+  and the banner says so once.
+- **Live updates:** while the app is in front it listens to `GET /api/v1/events` (server-sent
+  events). When someone else changes a list, the change appears within a few seconds. If the stream
+  cannot be kept open the app checks `GET /api/v1/changes` every 12 seconds instead. It reconnects
+  and syncs as soon as the phone is back online.
+- **Older servers:** without `/changes` the app falls back to fetching every list.
+- **Signing out** removes the saved copy, including any changes not yet sent (the confirmation says
+  how many). An expired session or a password reset keeps them, to be sent after signing in again.
+
+Code: `Sources/LorisListKit/Sync/` (`Outbox`, `Snapshot`, `SyncEngine`, `LiveUpdates`), with tests in
+`Tests/LorisListKitTests/` (`OutboxTests`, `SyncEngineTests`, `LiveUpdatesTests`, ...).
+
 ## Not done yet
 
-- **Live updates.** The API has no push yet. The app reloads when you open it, pull to refresh, and
-  when it returns to the foreground.
-- **Offline use.** Lists are fetched, not stored on the phone.
+- **Offline list management.** Creating, renaming, deleting and sharing lists need a connection.
+- **Background sync.** Updates arrive while the app is open, not while it is closed. Push
+  notifications would need the server to talk to Apple.
