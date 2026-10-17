@@ -42,6 +42,9 @@ struct LoginView: View {
             if let notice = model.signedOutNotice {
                 Banner(.info, notice)
             }
+            if case .invitation = model.pendingLink {
+                Banner(.info, "Sign in or sign up to answer your invitation.")
+            }
 
             Card {
                 CardTitle("Sign In")
@@ -287,7 +290,7 @@ struct ForgotPasswordSheet: View {
         SheetScaffold(title: "Reset Password") {
             if sent {
                 Banner(.success, "If that email address has an account, a reset link is on its way.")
-                Text("The link opens the Lori's List website, where you can choose a new password. Then come back here and sign in.")
+                Text("The link opens a screen where you can choose a new password. Then sign in with it.")
                     .font(.subheadline)
                     .foregroundColor(.black)
                 HStack {

@@ -2,6 +2,7 @@
 *.xcodeproj
 # Written by `xcodegen generate` from project.yml
 LorisList/Info.plist
+LorisList/LorisList.entitlements
 xcuserdata/
 DerivedData/
 *.xcuserstate

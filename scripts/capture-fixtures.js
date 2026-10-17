@@ -149,6 +149,8 @@ function save(name, r) {
 
   // --- password reset, rate limiting, sign out --------------------------------
   save('password_reset_requested', await call('post', '/auth/password-reset', { body: { email: 'lori@example.com' } }));
+  // The reset link goes out by email; the harness keeps the mail, so the token can be read back.
+  const resetToken = /([0-9a-f]{32})$/.exec(h.mail[h.mail.length - 1].context.link)[1];
   save('password_reset_token_unknown', await call('get', '/auth/password-reset/:token', { params: { token: 'f'.repeat(32) } }));
   for (let i = 0; i < 5; i++) {
     await call('post', '/auth/login', { body: { username: 'amy', password: 'wrong-' + i }, ip: '203.0.113.9' });
@@ -160,6 +162,13 @@ function save(name, r) {
   save('session_not_found', await call('delete', '/auth/sessions/:sessionId', { token, params: { sessionId: '424242' } }));
   save('logout', await call('post', '/auth/logout', { token }));
   save('after_logout_unauthorized', await call('get', '/lists', { token }));
+
+  // --- finishing a reset (last, because it signs the account out everywhere) ----
+  save('password_reset_token_ok', await call('get', '/auth/password-reset/:token', { params: { token: resetToken } }));
+  save('password_reset_weak_password', await call('put', '/auth/password-reset/:token', { params: { token: resetToken }, body: { password: 'short' } }));
+  save('password_reset_completed', await call('put', '/auth/password-reset/:token', { params: { token: resetToken }, body: { password: 'a-brand-new-password' } }));
+  save('password_reset_token_used', await call('get', '/auth/password-reset/:token', { params: { token: resetToken } }));
+  save('share_not_found', await call('get', '/shares/:key', { token: amy.accessToken, params: { key: 'e'.repeat(32) } }));
 
   console.log(saved.join('\n'));
 })().catch((e) => { console.error('CAPTURE FAILED', e); process.exit(1); });
