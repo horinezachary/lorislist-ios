@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "body": {
+    "revision": "4032ed0a10267622",
+    "lists": [
+      {
+        "id": 1,
+        "revision": "a79154121b80def1"
+      }
+    ]
+  }
+}

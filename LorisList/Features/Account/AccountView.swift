@@ -70,7 +70,11 @@ struct AccountView: View {
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("You will need to sign in again on this device.")
+            if app.syncState.pendingCount > 0 {
+                Text("\(app.syncState.pendingCount) change(s) made on this phone have not been saved to your account yet and will be lost. You will need to sign in again on this device.")
+            } else {
+                Text("You will need to sign in again on this device.")
+            }
         }
     }
 

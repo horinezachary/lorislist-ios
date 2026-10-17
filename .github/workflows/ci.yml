@@ -12,7 +12,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Test LorisListKit
-        run: swift test
+        shell: bash
+        run: swift test 2>&1 | tee swift-test.log
+      # The logs are not easy to reach from outside GitHub, so put the errors in the run's annotations.
+      - name: Show what failed
+        if: failure()
+        run: |
+          grep -E "error:|failed|XCTAssert|Fatal error" swift-test.log | head -25 | while IFS= read -r line; do
+            echo "::error::${line:0:900}"
+          done
 
   build-app:
     name: Build the app
@@ -24,9 +32,16 @@ jobs:
       - name: Generate the Xcode project
         run: xcodegen generate
       - name: Build for the simulator
+        shell: bash
         run: |
           xcodebuild build \
             -project LorisList.xcodeproj \
             -scheme LorisList \
             -destination 'generic/platform=iOS Simulator' \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO 2>&1 | tee xcodebuild.log
+      - name: Show what failed
+        if: failure()
+        run: |
+          grep -E "error:" xcodebuild.log | sort -u | head -25 | while IFS= read -r line; do
+            echo "::error::${line:0:900}"
+          done
