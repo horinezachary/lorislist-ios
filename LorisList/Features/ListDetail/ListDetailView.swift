@@ -30,32 +30,34 @@ final class ListDetailModel: ObservableObject {
         subscription = events.sink { [weak self] event in
             switch event {
             case .list(let id) where id == summary.id:
-                Task { await self?.reload() }
+                Task { await self?.reload(fromEvent: true) }
             case .lists:
-                Task { await self?.reload() }
+                Task { await self?.reload(fromEvent: true) }
             default:
                 break
             }
         }
-        Task { await reload() }
+        Task { await reload(fromEvent: false) }
     }
 
     /// Reads the saved copy, which already has any waiting changes applied.
-    private func reload() async {
+    ///
+    /// A list that is not saved is only called gone when a sync says so (`fromEvent`): opening a
+    /// list that was only just shared with the person finds nothing saved yet, and is not gone.
+    private func reload(fromEvent: Bool) async {
         if let saved = await sync.list(id: listID) {
             list = saved
             hasLoaded = true
             isGone = false
-        } else if await sync.hasData() {
+        } else if fromEvent, await sync.hasData() {
             let stillThere = await sync.lists().contains { $0.id == listID }
-            // Known list whose items have not arrived yet is not gone; an unknown one is.
             if !stillThere { isGone = true }
         }
     }
 
     func load() async {
         await sync.sync()
-        await reload()
+        await reload(fromEvent: true)
         errorText = nil
         if list.canEdit {
             suggestionPool = await sync.refreshSuggestions()

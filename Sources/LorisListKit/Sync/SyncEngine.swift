@@ -242,7 +242,7 @@ public actor SyncEngine {
     private func fetchDigest() async throws -> Digest {
         do {
             return try await api.changes()
-        } catch let error as APIError where error.code == .notFound {
+        } catch let error as APIError where error.code == .notFound || error.status == 404 {
             // A server from before live updates: no fingerprints, so every list is fetched again.
             let lists = try await api.lists()
             return Digest(revision: "", lists: lists.map { Digest.Entry(id: $0.id, revision: "") })

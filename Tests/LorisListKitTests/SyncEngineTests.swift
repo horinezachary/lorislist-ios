@@ -14,6 +14,13 @@ final class FakeServer: @unchecked Sendable {
     private var posts: [String] = []      // Idempotency-Key of every add the server accepted
     private var attempts: [String] = []   // ... and of every add that reached it, accepted or not
     private var counts: [String: Int] = [:]
+    private var delay: TimeInterval = 0
+
+    /// Seconds to pause before answering, to make requests overlap.
+    var latency: TimeInterval {
+        get { lock.withLock { delay } }
+        set { lock.withLock { delay = newValue } }
+    }
 
     var up: Bool {
         get { lock.withLock { isUp } }
@@ -74,7 +81,11 @@ final class SyncEngineTests: XCTestCase {
     private func makeEngine(
         server: FakeServer = FakeServer(), signedIn: Bool = true, store: SnapshotStore = InMemorySnapshotStore()
     ) -> (SyncEngine, FakeServer, SnapshotStore) {
-        let transport = MockTransport { try server.respond($0) }
+        let transport = MockTransport { request in
+            let pause = server.latency
+            if pause > 0 { try await Task.sleep(nanoseconds: UInt64(pause * 1_000_000_000)) }
+            return try server.respond(request)
+        }
         let (client, _) = Fixtures.client(signedIn: signedIn, transport: transport)
         return (SyncEngine(api: client, store: store), server, store)
     }
@@ -165,7 +176,9 @@ final class SyncEngineTests: XCTestCase {
     }
 
     func testConcurrentSyncsShareTheWork() async throws {
-        let (engine, server, _) = makeEngine()
+        let slow = FakeServer()
+        slow.latency = 0.05   // long enough for the five calls to overlap
+        let (engine, server, _) = makeEngine(server: slow)
         await withTaskGroup(of: Void.self) { group in
             for _ in 0..<5 { group.addTask { await engine.sync() } }
         }
