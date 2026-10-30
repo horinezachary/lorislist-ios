@@ -66,7 +66,7 @@ struct ListEditorSheet: View {
                 .submitLabel(.done)
                 .focused($nameFocused)
                 .onSubmit { nameFocused = false }
-                .onChange(of: name) { value in
+                .onChange(of: name) { _, value in
                     if value.count > ItemInput.maxNameLength {
                         name = String(value.prefix(ItemInput.maxNameLength))
                     }

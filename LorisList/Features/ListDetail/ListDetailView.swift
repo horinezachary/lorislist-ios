@@ -193,12 +193,12 @@ struct ListDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .brandedNavigationBar()
         .task { await model.load() }
-        .onChange(of: scenePhase) { phase in
+        .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 Task { await model.load() }
             }
         }
-        .onChange(of: model.isGone) { gone in
+        .onChange(of: model.isGone) { _, gone in
             if gone { dismiss() }
         }
         .sheet(isPresented: $showShare) {
@@ -315,7 +315,7 @@ struct ListDetailView: View {
                     .focused($nameFocused)
                     .submitLabel(.send)
                     .onSubmit { Task { await addItem() } }
-                    .onChange(of: newName) { value in
+                    .onChange(of: newName) { _, value in
                         if value.count > ItemInput.maxNameLength {
                             newName = String(value.prefix(ItemInput.maxNameLength))
                         }
