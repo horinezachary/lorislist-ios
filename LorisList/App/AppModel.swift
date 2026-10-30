@@ -189,6 +189,16 @@ final class AppModel: ObservableObject {
         phase = .signedOut
     }
 
+    /// The account was deleted. The server ended every session, and the saved copy belongs to
+    /// an account that no longer exists.
+    func accountDeleted() async {
+        await sync.reset()
+        user = nil
+        pendingLink = nil
+        signedOutNotice = "Your account has been deleted."
+        phase = .signedOut
+    }
+
     /// An invitation was accepted: close the sheet and open the list.
     func invitationAccepted(_ list: ListSummary) {
         pendingLink = nil

@@ -359,6 +359,39 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(body["newPassword"] as? String, "abcdefgh12")
     }
 
+    func testDeletingTheAccountSendsThePasswordAndSignsOut() async throws {
+        let expired = Flag()
+        let transport = MockTransport { _ in .fixture("account_deleted") }
+        let (client, store) = Fixtures.client(transport: transport)
+        await client.setSessionExpiredHandler { expired.raise() }
+
+        try await client.deleteAccount(password: "hunter2hunter2")
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.httpMethod, "DELETE")
+        XCTAssertEqual(sent.url?.path, "/api/v1/me")
+        XCTAssertEqual(sent.jsonBody?["password"] as? String, "hunter2hunter2")
+        XCTAssertEqual(sent.bearer, "Bearer access-1")
+        XCTAssertNil(store.load())
+        let signedIn = await client.isSignedIn
+        XCTAssertFalse(signedIn)
+        XCTAssertEqual(expired.times, 0, "deleting the account is not an expired session")
+    }
+
+    func testDeletingTheAccountWithTheWrongPasswordKeepsTheSession() async throws {
+        let transport = MockTransport { _ in .fixture("account_delete_wrong_password") }
+        let (client, store) = Fixtures.client(transport: transport)
+
+        do {
+            try await client.deleteAccount(password: "bad")
+            XCTFail("expected an error")
+        } catch let error as APIError {
+            XCTAssertEqual(error.code, .wrongPassword)
+            XCTAssertEqual(error.localizedDescription, "Your password was not correct.")
+        }
+        XCTAssertNotNil(store.load())
+    }
+
     func testPasswordResetRequestIsAcceptedWithoutSignIn() async throws {
         let transport = MockTransport { _ in .fixture("password_reset_requested") }
         let (client, _) = Fixtures.client(signedIn: false, transport: transport)
