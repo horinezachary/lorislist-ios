@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import LorisListKit
 
@@ -17,108 +18,85 @@ final class ListDetailModel: ObservableObject {
     @Published private(set) var isGone = false
     @Published var errorText: String?
 
-    private let api: APIClient
+    private let sync: SyncEngine
+    private var subscription: AnyCancellable?
     let listID: Int
 
-    init(summary: ListSummary, api: APIClient) {
-        self.api = api
+    init(summary: ListSummary, sync: SyncEngine, events: AnyPublisher<SyncEvent, Never>) {
+        self.sync = sync
         self.listID = summary.id
         // Draw the header in the right colour straight away; the items follow.
         self.list = ListDetail(summary: summary, canEdit: summary.role != .view, items: [])
+        subscription = events.sink { [weak self] event in
+            switch event {
+            case .list(let id) where id == summary.id:
+                Task { await self?.reload(fromEvent: true) }
+            case .lists:
+                Task { await self?.reload(fromEvent: true) }
+            default:
+                break
+            }
+        }
+        Task { await reload(fromEvent: false) }
     }
 
-    func load() async {
-        do {
-            let fresh = try await api.list(id: listID)
-            list = fresh
+    /// Reads the saved copy, which already has any waiting changes applied.
+    ///
+    /// A list that is not saved is only called gone when a sync says so (`fromEvent`): opening a
+    /// list that was only just shared with the person finds nothing saved yet, and is not gone.
+    private func reload(fromEvent: Bool) async {
+        if let saved = await sync.list(id: listID) {
+            list = saved
             hasLoaded = true
-            errorText = nil
-            if fresh.canEdit && suggestionPool.isEmpty {
-                if let names = try? await api.suggestions() {
-                    suggestionPool = names
-                }
-            }
-        } catch is CancellationError {
-            // Left the screen, or a pull-to-refresh was interrupted. Not an error.
-        } catch let error as APIError where error.code == .notFound {
-            isGone = true
-        } catch {
-            report(error)
+            isGone = false
+        } else if fromEvent, await sync.hasData() {
+            let stillThere = await sync.lists().contains { $0.id == listID }
+            if !stillThere { isGone = true }
         }
     }
 
-    /// Crosses an item off, or puts it back. The change shows at once and is undone if the server says no.
+    func load() async {
+        await sync.sync()
+        await reload(fromEvent: true)
+        errorText = nil
+        if list.canEdit {
+            suggestionPool = await sync.refreshSuggestions()
+        }
+    }
+
+    /// Crosses an item off, or puts it back. Shows at once; sent now, or when the connection returns.
     func toggle(_ item: ListItem) async {
-        guard list.canEdit, let index = list.items.firstIndex(where: { $0.id == item.id }) else { return }
-        let newValue = !list.items[index].checked
-        list.items[index].checked = newValue
-        do {
-            try await api.setChecked(listID: listID, itemID: item.id, checked: newValue)
-        } catch is CancellationError {
-            setChecked(item.id, !newValue)
-        } catch {
-            setChecked(item.id, !newValue)
-            report(error)
+        guard list.canEdit, let current = list.items.first(where: { $0.id == item.id }) else { return }
+        if let updated = await sync.setChecked(listID: listID, itemID: item.id, checked: !current.checked) {
+            list = updated
         }
     }
 
     /// Returns true when the item was added.
     func add(name: String, count: Int?) async -> Bool {
         guard list.canEdit else { return false }
-        do {
-            list.items = try await api.addItem(listID: listID, name: name, count: count)
-            errorText = nil
-            if !suggestionPool.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
-                suggestionPool.append(name)
-            }
-            return true
-        } catch is CancellationError {
-            return false
-        } catch {
-            report(error)
-            return false
+        guard let updated = await sync.addItem(listID: listID, name: name, count: count) else { return false }
+        list = updated
+        errorText = nil
+        if !suggestionPool.contains(where: { $0.caseInsensitiveCompare(name) == .orderedSame }) {
+            suggestionPool.append(name)
         }
+        return true
     }
 
     func remove(_ item: ListItem) async {
         guard list.canEdit else { return }
-        let before = list.items
-        list.items.removeAll { $0.id == item.id }
-        do {
-            try await api.removeItem(listID: listID, itemID: item.id)
-        } catch is CancellationError {
-            list.items = before
-        } catch {
-            list.items = before
-            report(error)
+        if let updated = await sync.removeItem(listID: listID, itemID: item.id) {
+            list = updated
         }
     }
 
     /// The "Clear" button: removes everything that is crossed off.
     func clearCrossedOff() async {
         guard list.canEdit, list.checkedCount > 0 else { return }
-        let before = list.items
-        list.items.removeAll { $0.checked }
-        do {
-            try await api.clearChecked(listID: listID)
-        } catch is CancellationError {
-            list.items = before
-        } catch {
-            list.items = before
-            report(error)
+        if let updated = await sync.clearChecked(listID: listID) {
+            list = updated
         }
-    }
-
-    private func setChecked(_ id: Int, _ value: Bool) {
-        if let index = list.items.firstIndex(where: { $0.id == id }) {
-            list.items[index].checked = value
-        }
-    }
-
-    private func report(_ error: Error) {
-        // An expired session already sent the person to the sign-in screen.
-        if let apiError = error as? APIError, apiError.code == .sessionExpired { return }
-        errorText = error.localizedDescription
     }
 }
 
@@ -126,7 +104,6 @@ final class ListDetailModel: ObservableObject {
 
 struct ListDetailView: View {
     @EnvironmentObject private var app: AppModel
-    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ListDetailModel
 
@@ -137,8 +114,9 @@ struct ListDetailView: View {
     @State private var tipDismissed = false
     @FocusState private var nameFocused: Bool
 
-    init(summary: ListSummary, api: APIClient) {
-        _model = StateObject(wrappedValue: ListDetailModel(summary: summary, api: api))
+    init(summary: ListSummary, app: AppModel) {
+        _model = StateObject(wrappedValue: ListDetailModel(
+            summary: summary, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
     }
 
     var body: some View {
@@ -147,6 +125,7 @@ struct ListDetailView: View {
         let foreground = Color.foreground(on: summary.color)
 
         CardColumn(spacing: 12) {
+            SyncBanner()
             if showTip {
                 tipBanner
             }
@@ -193,11 +172,6 @@ struct ListDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .brandedNavigationBar()
         .task { await model.load() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task { await model.load() }
-            }
-        }
         .onChange(of: model.isGone) { _, gone in
             if gone { dismiss() }
         }

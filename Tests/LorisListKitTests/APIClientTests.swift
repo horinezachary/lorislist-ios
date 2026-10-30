@@ -795,3 +795,75 @@ final class APIClientTests: XCTestCase {
         XCTAssertTrue(transport.requests.isEmpty)
     }
 }
+
+// MARK: - Sync pieces of the client
+
+extension APIClientTests {
+    func testTheChangeDigest() async throws {
+        let transport = MockTransport { _ in .fixture("changes_synced") }
+        let (client, _) = Fixtures.client(transport: transport)
+
+        let digest = try await client.changes()
+
+        XCTAssertEqual(digest.lists, [Digest.Entry(id: 1, revision: "a79154121b80def1")])
+        XCTAssertEqual(transport.requests.first?.url?.path, "/api/v1/changes")
+        XCTAssertEqual(transport.requests.first?.bearer, "Bearer access-1")
+    }
+
+    func testAListCarriesItsFingerprint() async throws {
+        let (client, _) = Fixtures.client(transport: MockTransport { _ in .fixture("list_synced") })
+        let list = try await client.list(id: 1)
+        XCTAssertEqual(list.revision, "a79154121b80def1")
+    }
+
+    func testAListFromAnOlderServerHasNoFingerprint() async throws {
+        let (client, _) = Fixtures.client(transport: MockTransport { _ in
+            .json(200, #"{"list":{"id":1,"name":"A","color":"ff9900","owner":"lori","role":"owner","canEdit":true,"items":[]}}"#)
+        })
+        let list = try await client.list(id: 1)
+        XCTAssertNil(list.revision)
+    }
+
+    func testWritesCanCarryAnIdempotencyKey() async throws {
+        let transport = MockTransport { request in
+            switch request.httpMethod {
+            case "POST": return .fixture("item_added_for_sync")
+            case "PATCH": return .fixture("item_checked")
+            default: return .fixture("item_removed")
+            }
+        }
+        let (client, _) = Fixtures.client(transport: transport)
+
+        _ = try await client.addItem(listID: 1, name: "Milk", count: 2, idempotencyKey: "key-add-0001")
+        try await client.setChecked(listID: 1, itemID: 3, checked: true, idempotencyKey: "key-tick-001")
+        try await client.removeItem(listID: 1, itemID: 3, idempotencyKey: "key-del-0001")
+
+        let keys = transport.requests.map { $0.value(forHTTPHeaderField: "Idempotency-Key") }
+        XCTAssertEqual(keys, ["key-add-0001", "key-tick-001", "key-del-0001"])
+    }
+
+    func testWritesWithoutAKeySendNone() async throws {
+        let transport = MockTransport { _ in .fixture("item_added_for_sync") }
+        let (client, _) = Fixtures.client(transport: transport)
+        _ = try await client.addItem(listID: 1, name: "Milk", count: nil)
+        XCTAssertNil(transport.requests.first?.value(forHTTPHeaderField: "Idempotency-Key"))
+    }
+
+    func testTheStreamRequestIsSignedAndAsksForEvents() async throws {
+        let (client, _) = Fixtures.client(transport: MockTransport { _ in .json(500, "{}") })
+        let request = try await client.streamRequest()
+        XCTAssertEqual(request.url?.path, "/api/v1/events")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer access-1")
+        XCTAssertEqual(request.value(forHTTPHeaderField: "Accept"), "text/event-stream")
+    }
+
+    func testTheStreamRequestNeedsASignIn() async throws {
+        let (client, _) = Fixtures.client(signedIn: false, transport: MockTransport { _ in .json(500, "{}") })
+        do {
+            _ = try await client.streamRequest()
+            XCTFail("expected an error")
+        } catch let error as APIError {
+            XCTAssertEqual(error.code, .sessionExpired)
+        }
+    }
+}

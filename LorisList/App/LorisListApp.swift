@@ -3,12 +3,17 @@ import SwiftUI
 @main
 struct LorisListApp: App {
     @StateObject private var model = AppModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(model)
                 .task { await model.start() }
+                // Live updates run while the app is in front; coming back to the front syncs at once.
+                .onChange(of: scenePhase) { _, phase in
+                    model.setActive(phase == .active)
+                }
                 // Links in Lori's List emails open here when the site vouches for the app.
                 .onOpenURL { model.handle(url: $0) }
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in

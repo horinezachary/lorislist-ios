@@ -1,0 +1,35 @@
+{
+  "status": 200,
+  "body": {
+    "list": {
+      "id": 1,
+      "name": "Weekly Groceries",
+      "color": "ff9900",
+      "owner": "lori",
+      "role": "owner",
+      "lastChange": 1792152001000,
+      "canEdit": true,
+      "items": [
+        {
+          "id": 3,
+          "name": "Eggs",
+          "count": 12,
+          "checked": false
+        },
+        {
+          "id": 4,
+          "name": "Cake",
+          "count": null,
+          "checked": false
+        },
+        {
+          "id": 5,
+          "name": "Oat milk",
+          "count": 3,
+          "checked": false
+        }
+      ],
+      "revision": "88e4deed13ec48fb"
+    }
+  }
+}
