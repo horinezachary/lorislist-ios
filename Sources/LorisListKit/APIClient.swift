@@ -186,6 +186,14 @@ public actor APIClient {
         try await sendEmpty(Endpoint(method: "PUT", path: "/me/password", body: body))
     }
 
+    /// Deletes the account and everything in it, after the server checks the password. The
+    /// server signs out every device, so this one is signed out too.
+    public func deleteAccount(password: String) async throws {
+        let body = try json(PasswordBody(password: password))
+        try await sendEmpty(Endpoint(method: "DELETE", path: "/me", body: body))
+        clearLocalSession()
+    }
+
     // MARK: Live updates
 
     /// The request that opens the live stream (`GET /events`), signed with the current access token.

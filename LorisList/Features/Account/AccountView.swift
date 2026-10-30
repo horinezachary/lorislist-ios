@@ -1,7 +1,8 @@
 import SwiftUI
 import LorisListKit
 
-/// "My Account": name, email and password, as on the website, plus devices and sign out.
+/// "My Account": name, email and password, as on the website, plus devices, sign out and
+/// deleting the account (which the App Store requires of any app you can sign up in).
 struct AccountView: View {
     enum AccountSheet: String, Identifiable {
         case name, email, password
@@ -12,6 +13,7 @@ struct AccountView: View {
     @EnvironmentObject private var app: AppModel
     @State private var sheet: AccountSheet?
     @State private var confirmSignOut = false
+    @State private var showDeleteAccount = false
 
     var body: some View {
         CardColumn {
@@ -56,6 +58,8 @@ struct AccountView: View {
                 .padding(12)
             }
 
+            deleteCard
+
             aboutCard
         }
         .navigationTitle("Lori's List")
@@ -63,6 +67,9 @@ struct AccountView: View {
         .brandedNavigationBar()
         .sheet(item: $sheet) { which in
             EditAccountSheet(kind: which, user: app.user)
+        }
+        .sheet(isPresented: $showDeleteAccount) {
+            DeleteAccountSheet()
         }
         .alert("Sign out", isPresented: $confirmSignOut) {
             Button("Sign out", role: .destructive) {
@@ -96,6 +103,26 @@ struct AccountView: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
+    }
+
+    private var deleteCard: some View {
+        Card {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Delete account")
+                        .font(.headline)
+                    Text("Permanently delete your account and your lists.")
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "495057"))
+                }
+                .foregroundColor(.black)
+                Spacer(minLength: 8)
+                Button("Delete") { showDeleteAccount = true }
+                    .buttonStyle(AppButtonStyle(kind: .danger, compact: true))
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 14)
+        }
     }
 
     private var aboutCard: some View {
@@ -267,6 +294,80 @@ struct EditAccountSheet: View {
                 newPasswordAgain = ""
                 passwordChanged = true
             }
+        } catch is CancellationError {
+            // The sheet went away; nothing to report.
+        } catch {
+            errorText = error.localizedDescription
+        }
+    }
+}
+
+// MARK: - Deleting the account
+
+/// Asks for the password, then a last "are you sure", then deletes the account. Signing out
+/// follows on its own, since the server ends every session.
+struct DeleteAccountSheet: View {
+    @EnvironmentObject private var app: AppModel
+
+    @State private var password = ""
+    @State private var confirm = false
+    @State private var isWorking = false
+    @State private var errorText: String?
+
+    var body: some View {
+        SheetScaffold(title: "Delete account") {
+            if let errorText {
+                Banner(.error, errorText)
+            }
+
+            Text("This permanently deletes your account (\(app.user?.username ?? "")), every list you own and everything on them, and signs you out on all your devices. People you shared lists with lose them too. Lists other people shared with you stay theirs.")
+                .font(.subheadline)
+                .foregroundColor(.black)
+            Text("This can't be undone.")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.black)
+
+            SecureField("password", text: $password)
+                .textContentType(.password)
+                .submitLabel(.done)
+                .boxedField()
+
+            HStack {
+                Spacer()
+                Button {
+                    if password.isEmpty {
+                        errorText = "Enter your password to delete your account."
+                    } else {
+                        errorText = nil
+                        confirm = true
+                    }
+                } label: {
+                    BusyLabel(title: "Delete my account", isBusy: isWorking)
+                }
+                .buttonStyle(.appDanger)
+                .disabled(isWorking)
+            }
+        }
+        .interactiveDismissDisabled(isWorking)
+        .alert("Delete your account?", isPresented: $confirm) {
+            Button("Delete", role: .destructive) {
+                Task { await delete() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your account and lists will be gone for good.")
+        }
+    }
+
+    private func delete() async {
+        guard !isWorking else { return }
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            try await app.api.deleteAccount(password: password)
+            password = ""
+            // Leaves the signed-in screens, which closes this sheet.
+            await app.accountDeleted()
         } catch is CancellationError {
             // The sheet went away; nothing to report.
         } catch {

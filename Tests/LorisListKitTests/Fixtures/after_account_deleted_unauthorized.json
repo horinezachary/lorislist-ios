@@ -1,0 +1,12 @@
+{
+  "status": 401,
+  "body": {
+    "error": {
+      "code": "unauthorized",
+      "message": "Sign in required, or your session has expired."
+    }
+  },
+  "headers": {
+    "WWW-Authenticate": "Bearer"
+  }
+}

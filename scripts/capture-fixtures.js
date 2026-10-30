@@ -198,5 +198,13 @@ function save(name, r) {
   save('password_reset_token_used', await call('get', '/auth/password-reset/:token', { params: { token: resetToken } }));
   save('share_not_found', await call('get', '/shares/:key', { token: amy.accessToken, params: { key: 'e'.repeat(32) } }));
 
+  // --- deleting an account (a fresh one, so nothing above is affected) ----------
+  const doomed = (await call('post', '/auth/register', {
+    body: { firstName: 'Gone', lastName: 'Soon', username: 'gone', email: 'gone@example.com', password: 'hunter2hunter2', deviceName: 'iPhone' }
+  })).body.accessToken;
+  save('account_delete_wrong_password', await call('delete', '/me', { token: doomed, body: { password: 'definitely-wrong' } }));
+  save('account_deleted', await call('delete', '/me', { token: doomed, body: { password: 'hunter2hunter2' } }));
+  save('after_account_deleted_unauthorized', await call('get', '/me', { token: doomed }));
+
   console.log(saved.join('\n'));
 })().catch((e) => { console.error('CAPTURE FAILED', e); process.exit(1); });

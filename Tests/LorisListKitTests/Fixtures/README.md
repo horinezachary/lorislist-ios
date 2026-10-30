@@ -18,3 +18,4 @@ A few worth knowing:
 | `list_with_items` | `count` is `null` for items without a quantity. |
 | `lists_two` | `lastChange` is a number here (the test database); the spec says an ISO string. Both are accepted. |
 | `login_rate_limited` | 429 with a `Retry-After` header. |
+| `account_deleted` | 204 from `DELETE /me`. Every token for the account is gone afterwards (`after_account_deleted_unauthorized`). |
