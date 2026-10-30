@@ -7,7 +7,7 @@ import PackageDescription
 // project.yml (XcodeGen) depends on it.
 let package = Package(
     name: "LorisListKit",
-    platforms: [.iOS(.v16), .macOS(.v13)],
+    platforms: [.iOS(.v17), .macOS(.v13)],
     products: [
         .library(name: "LorisListKit", targets: ["LorisListKit"])
     ],

@@ -12,7 +12,7 @@ are signed in on, which the website cannot, so a lost phone can be signed out.
 
 ## Build it
 
-You need a Mac with Xcode 15 or later (iOS 16+ target).
+You need a Mac with Xcode 15 or later (iOS 17+ target).
 
 ```sh
 brew install xcodegen

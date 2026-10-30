@@ -76,7 +76,7 @@ struct MainView: View {
     var body: some View {
         NavigationStack(path: $path) {
             HomeView(api: model.api)
-                .onChange(of: model.listToOpen) { list in
+                .onChange(of: model.listToOpen) { _, list in
                     guard let list else { return }
                     path = [.list(list)]
                     model.listToOpen = nil
