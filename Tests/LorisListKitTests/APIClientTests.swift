@@ -404,6 +404,104 @@ final class APIClientTests: XCTestCase {
         XCTAssertEqual(denyTransport.requests.first?.jsonBody?["response"] as? String, "deny")
     }
 
+    // MARK: Password reset links
+
+    func testResetLinkThatIsStillGoodIsAccepted() async throws {
+        let transport = MockTransport { _ in .fixture("password_reset_token_ok") }
+        let (client, _) = Fixtures.client(signedIn: false, transport: transport)
+
+        try await client.checkPasswordReset(token: "a1b2c3d4e5f60718293a4b5c6d7e8f90")
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.httpMethod, "GET")
+        XCTAssertEqual(sent.url?.path, "/api/v1/auth/password-reset/a1b2c3d4e5f60718293a4b5c6d7e8f90")
+        XCTAssertNil(sent.bearer, "a reset link works without being signed in")
+    }
+
+    func testResetLinkThatExpiredOrWasUsedIsNotFound() async throws {
+        for fixture in ["password_reset_token_unknown", "password_reset_token_used"] {
+            let transport = MockTransport { _ in .fixture(fixture) }
+            let (client, _) = Fixtures.client(signedIn: false, transport: transport)
+            do {
+                try await client.checkPasswordReset(token: "ffffffffffffffffffffffffffffffff")
+                XCTFail("expected an error for \(fixture)")
+            } catch let error as APIError {
+                XCTAssertEqual(error.code, .notFound, fixture)
+                XCTAssertEqual(transport.requests.count, 1, "a 404 here must not start a token refresh")
+            }
+        }
+    }
+
+    func testChoosingANewPasswordFromAResetLink() async throws {
+        let transport = MockTransport { _ in .fixture("password_reset_completed") }
+        let (client, _) = Fixtures.client(signedIn: false, transport: transport)
+
+        try await client.completePasswordReset(token: "a1b2c3d4e5f60718293a4b5c6d7e8f90", newPassword: "a-brand-new-password")
+
+        let sent = try XCTUnwrap(transport.requests.first)
+        XCTAssertEqual(sent.httpMethod, "PUT")
+        XCTAssertEqual(sent.url?.path, "/api/v1/auth/password-reset/a1b2c3d4e5f60718293a4b5c6d7e8f90")
+        XCTAssertEqual(sent.jsonBody?["password"] as? String, "a-brand-new-password")
+        XCTAssertEqual(sent.jsonBody?.keys.sorted(), ["password"])
+        XCTAssertNil(sent.bearer)
+    }
+
+    func testResettingThePasswordEndsTheSessionOnThisPhoneToo() async throws {
+        let transport = MockTransport { _ in .fixture("password_reset_completed") }
+        let (client, store) = Fixtures.client(transport: transport)
+
+        try await client.completePasswordReset(token: "a1b2c3d4e5f60718293a4b5c6d7e8f90", newPassword: "a-brand-new-password")
+
+        XCTAssertNil(store.load())
+        let signedIn = await client.isSignedIn
+        XCTAssertFalse(signedIn)
+    }
+
+    func testAResetPasswordThatIsTooShortKeepsTheSession() async throws {
+        let transport = MockTransport { _ in .fixture("password_reset_weak_password") }
+        let (client, store) = Fixtures.client(transport: transport)
+
+        _ = try? await client.completePasswordReset(token: "a1b2c3d4e5f60718293a4b5c6d7e8f90", newPassword: "short")
+
+        XCTAssertNotNil(store.load())
+    }
+
+    func testAResetPasswordThatIsTooShortShowsTheServersMessage() async throws {
+        let transport = MockTransport { _ in .fixture("password_reset_weak_password") }
+        let (client, _) = Fixtures.client(signedIn: false, transport: transport)
+
+        do {
+            try await client.completePasswordReset(token: "a1b2c3d4e5f60718293a4b5c6d7e8f90", newPassword: "short")
+            XCTFail("expected an error")
+        } catch let error as APIError {
+            XCTAssertEqual(error.code, .invalidRequest)
+            XCTAssertEqual(error.errorDescription, "Passwords must be at least 8 characters long.")
+        }
+    }
+
+    func testLinkPartsAreEscapedInThePath() async throws {
+        let transport = MockTransport { _ in .fixture("password_reset_token_unknown") }
+        let (client, _) = Fixtures.client(signedIn: false, transport: transport)
+
+        _ = try? await client.checkPasswordReset(token: "../me?x=1")
+
+        let path = transport.requests.first?.url?.absoluteString ?? ""
+        XCTAssertFalse(path.contains("/../"), path)
+        XCTAssertFalse(path.contains("?x=1"), path)
+    }
+
+    func testInvitationNotFound() async throws {
+        let transport = MockTransport { _ in .fixture("share_not_found") }
+        let (client, _) = Fixtures.client(transport: transport)
+
+        do {
+            _ = try await client.invitation(key: String(repeating: "e", count: 32))
+            XCTFail("expected an error")
+        } catch let error as APIError {
+            XCTAssertEqual(error.code, .notFound)
+        }
+    }
+
     // MARK: Token refresh
 
     /// The real refresh response is only {accessToken, tokenType, expiresIn}: no user, no
