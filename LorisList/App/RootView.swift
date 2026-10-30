@@ -75,7 +75,7 @@ struct MainView: View {
 
     var body: some View {
         NavigationStack(path: $path) {
-            HomeView(api: model.api)
+            HomeView(app: model)
                 .onChange(of: model.listToOpen) { list in
                     guard let list else { return }
                     path = [.list(list)]
@@ -84,7 +84,7 @@ struct MainView: View {
                 .navigationDestination(for: Route.self) { route in
                     switch route {
                     case .list(let summary):
-                        ListDetailView(summary: summary, api: model.api)
+                        ListDetailView(summary: summary, app: model)
                     case .account:
                         AccountView()
                     case .devices:

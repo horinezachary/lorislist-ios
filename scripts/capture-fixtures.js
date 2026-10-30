@@ -147,6 +147,34 @@ function save(name, r) {
   save('leave_own_list', await call('delete', '/lists/:id/members/me', { token, params: { id } }));
   save('list_deleted', await call('delete', '/lists/:id', { token, params: { id: String(second.body.list.id) } }));
 
+  // --- sync: the change digest, and what the live stream sends ----------------
+  save('list_synced', await call('get', '/lists/:id', { token, params: { id } }));
+  save('changes_synced', await call('get', '/changes', { token }));
+  save('changes_empty', await call('get', '/changes', { token: amy.accessToken }));
+  const added = await call('post', '/lists/:id/items', { token, params: { id }, body: { name: 'Oat milk', count: 3 } });
+  save('item_added_for_sync', added);
+  save('list_after_add', await call('get', '/lists/:id', { token, params: { id } }));
+  save('changes_after_add', await call('get', '/changes', { token }));
+  {
+    const { EventEmitter } = require('events');
+    const events = require(path.join(REPO, 'lib/apiEvents')).create({ api: h.api, setInterval: () => null });
+    const res = new EventEmitter();
+    res.written = '';
+    res.status = () => res;
+    res.setHeader = () => {};
+    res.flushHeaders = () => {};
+    res.write = (t) => { res.written += t; return true; };
+    res.end = () => {};
+    const request = new EventEmitter();
+    request.headers = { authorization: 'Bearer ' + token };
+    await events.handle(request, res, (e) => { throw e; });
+    await call('post', '/lists/:id/items', { token, params: { id }, body: { name: 'Bread' } });
+    await events.tick();
+    fs.writeFileSync(path.join(OUT, 'events_stream.txt'), res.written);
+    saved.push('events_stream.txt');
+    res.emit('close');
+  }
+
   // --- password reset, rate limiting, sign out --------------------------------
   save('password_reset_requested', await call('post', '/auth/password-reset', { body: { email: 'lori@example.com' } }));
   // The reset link goes out by email; the harness keeps the mail, so the token can be read back.
