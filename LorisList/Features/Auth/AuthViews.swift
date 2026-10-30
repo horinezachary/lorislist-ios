@@ -121,7 +121,7 @@ struct LoginView: View {
         defer { isWorking = false }
         do {
             let user = try await model.api.login(username: name, password: password)
-            model.didSignIn(user)
+            await model.didSignIn(user)
         } catch is CancellationError {
             // The screen went away; nothing to report.
         } catch {
@@ -266,7 +266,7 @@ struct RegisterView: View {
                 username: username.trimmingCharacters(in: .whitespacesAndNewlines),
                 email: email.trimmingCharacters(in: .whitespacesAndNewlines),
                 password: password)
-            model.didSignIn(user)
+            await model.didSignIn(user)
         } catch is CancellationError {
             // The screen went away; nothing to report.
         } catch {

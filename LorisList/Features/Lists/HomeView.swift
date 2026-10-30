@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 import LorisListKit
 
@@ -6,28 +7,39 @@ import LorisListKit
 @MainActor
 final class HomeModel: ObservableObject {
     @Published private(set) var lists: [ListSummary] = []
+    /// There is something to show: lists were fetched at some point, here or on an earlier run.
     @Published private(set) var hasLoaded = false
     @Published var errorText: String?
 
     private let api: APIClient
+    private let sync: SyncEngine
+    private var subscription: AnyCancellable?
 
-    init(api: APIClient) {
+    init(api: APIClient, sync: SyncEngine, events: AnyPublisher<SyncEvent, Never>) {
         self.api = api
+        self.sync = sync
+        subscription = events.sink { [weak self] event in
+            if case .lists = event { Task { await self?.reload() } }
+        }
+        // The saved copy first, so the screen is never empty on a launch without a connection.
+        Task { await reload() }
     }
 
     var groups: ListGroups { ListGroups(lists) }
 
-    func load() async {
-        do {
-            lists = try await api.lists()
-            hasLoaded = true
-            errorText = nil
-        } catch is CancellationError {
-            // Left the screen, or a pull-to-refresh was interrupted. Not an error.
-        } catch {
-            report(error)
-        }
+    private func reload() async {
+        lists = await sync.lists()
+        hasLoaded = await sync.hasData()
     }
+
+    /// Sends anything waiting, fetches what changed, and shows the result.
+    func load() async {
+        await sync.sync()
+        await reload()
+        errorText = nil
+    }
+
+    // Making, renaming, deleting and leaving lists need the server, so they say so when offline.
 
     func create(name: String, color: String) async throws {
         _ = try await api.createList(name: name, color: color)
@@ -42,7 +54,7 @@ final class HomeModel: ObservableObject {
     func delete(_ list: ListSummary) async {
         do {
             try await api.deleteList(id: list.id)
-            lists.removeAll { $0.id == list.id }
+            await load()
         } catch is CancellationError {
             return
         } catch {
@@ -53,7 +65,7 @@ final class HomeModel: ObservableObject {
     func leave(_ list: ListSummary) async {
         do {
             try await api.leaveList(id: list.id)
-            lists.removeAll { $0.id == list.id }
+            await load()
         } catch is CancellationError {
             return
         } catch {
@@ -72,7 +84,6 @@ final class HomeModel: ObservableObject {
 
 struct HomeView: View {
     @EnvironmentObject private var app: AppModel
-    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var model: HomeModel
 
     @State private var sheet: HomeSheet?
@@ -91,12 +102,14 @@ struct HomeView: View {
         }
     }
 
-    init(api: APIClient) {
-        _model = StateObject(wrappedValue: HomeModel(api: api))
+    init(app: AppModel) {
+        _model = StateObject(wrappedValue: HomeModel(
+            api: app.api, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
     }
 
     var body: some View {
         CardColumn {
+            SyncBanner()
             if let errorText = model.errorText {
                 Banner(.error, errorText)
             }
@@ -106,8 +119,16 @@ struct HomeView: View {
 
                 if !model.hasLoaded && model.errorText == nil {
                     RowDivider()
-                    ProgressView()
-                        .padding(24)
+                    if app.syncState.isOnline {
+                        ProgressView()
+                            .padding(24)
+                    } else {
+                        Text("Can't reach Lori's List. Your lists will appear here once you're connected.")
+                            .font(.subheadline)
+                            .foregroundColor(Color(hex: "495057"))
+                            .multilineTextAlignment(.center)
+                            .padding(20)
+                    }
                 } else if model.groups.mine.isEmpty && model.hasLoaded {
                     RowDivider()
                     Text("You don't have any lists yet. Tap New List to make your first one.")
@@ -165,11 +186,6 @@ struct HomeView: View {
         .task {
             await model.load()
             await app.loadColors()
-        }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task { await model.load() }
-            }
         }
         .sheet(item: $sheet) { current in
             switch current {

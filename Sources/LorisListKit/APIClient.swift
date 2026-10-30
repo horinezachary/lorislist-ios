@@ -186,6 +186,28 @@ public actor APIClient {
         try await sendEmpty(Endpoint(method: "PUT", path: "/me/password", body: body))
     }
 
+    // MARK: Live updates
+
+    /// The request that opens the live stream (`GET /events`), signed with the current access token.
+    public func streamRequest() async throws -> URLRequest {
+        guard let token = tokens?.accessToken else { throw APIError.sessionExpired }
+        guard let url = URL(string: baseURL + "/events") else { throw APIError.unexpected }
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 60
+        request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        return request
+    }
+
+    /// Call when the stream answered 401: gets a fresh access token the same way any request would.
+    public func renewAccessToken(after request: URLRequest) async throws {
+        let rejected = request.value(forHTTPHeaderField: "Authorization")?
+            .replacingOccurrences(of: "Bearer ", with: "")
+        guard let rejected = rejected else { throw APIError.sessionExpired }
+        _ = try await accessToken(replacing: rejected)
+    }
+
     // MARK: Lists
 
     public func colors() async throws -> [ListColorOption] {
@@ -196,6 +218,12 @@ public actor APIClient {
     public func lists() async throws -> [ListSummary] {
         let reply: ListsReply = try await send(Endpoint(method: "GET", path: "/lists"))
         return reply.lists
+    }
+
+    /// A fingerprint per list the person can see. Compare with the stored ones and fetch only
+    /// the lists that differ. Older servers answer `.notFound`.
+    public func changes() async throws -> Digest {
+        try await send(Endpoint(method: "GET", path: "/changes"))
     }
 
     public func createList(name: String, color: String) async throws -> ListSummary {
@@ -229,27 +257,34 @@ public actor APIClient {
     // MARK: Items
 
     /// Returns all of the list's items after the new one was added.
-    public func addItem(listID: Int, name: String, count: Int?) async throws -> [ListItem] {
+    ///
+    /// `idempotencyKey` makes a retry safe: sent again with the same key, the server returns
+    /// its first answer instead of adding a second item. Use one per queued change.
+    public func addItem(listID: Int, name: String, count: Int?, idempotencyKey: String? = nil) async throws -> [ListItem] {
         let body = try json(ItemBody(name: name, count: count))
-        let reply: ItemsReply = try await send(Endpoint(method: "POST", path: "/lists/\(listID)/items", body: body))
+        let endpoint = Endpoint(
+            method: "POST", path: "/lists/\(listID)/items", body: body, headers: Self.keyHeader(idempotencyKey))
+        let reply: ItemsReply = try await send(endpoint)
         return reply.items
     }
 
-    public func setChecked(listID: Int, itemID: Int, checked: Bool) async throws {
+    public func setChecked(listID: Int, itemID: Int, checked: Bool, idempotencyKey: String? = nil) async throws {
         let body = try json(CheckedBody(checked: checked))
-        try await sendEmpty(Endpoint(method: "PATCH", path: "/lists/\(listID)/items/\(itemID)", body: body))
+        try await sendEmpty(Endpoint(
+            method: "PATCH", path: "/lists/\(listID)/items/\(itemID)", body: body, headers: Self.keyHeader(idempotencyKey)))
     }
 
-    public func removeItem(listID: Int, itemID: Int) async throws {
-        try await sendEmpty(Endpoint(method: "DELETE", path: "/lists/\(listID)/items/\(itemID)"))
+    public func removeItem(listID: Int, itemID: Int, idempotencyKey: String? = nil) async throws {
+        try await sendEmpty(Endpoint(
+            method: "DELETE", path: "/lists/\(listID)/items/\(itemID)", headers: Self.keyHeader(idempotencyKey)))
     }
 
     /// Removes every crossed-off item. Returns how many were removed.
     @discardableResult
-    public func clearChecked(listID: Int) async throws -> Int {
+    public func clearChecked(listID: Int, idempotencyKey: String? = nil) async throws -> Int {
         let endpoint = Endpoint(
             method: "DELETE", path: "/lists/\(listID)/items",
-            query: [URLQueryItem(name: "checked", value: "true")])
+            query: [URLQueryItem(name: "checked", value: "true")], headers: Self.keyHeader(idempotencyKey))
         let reply: DeletedReply = try await send(endpoint)
         return reply.deleted
     }
@@ -291,10 +326,16 @@ extension APIClient {
         var query: [URLQueryItem] = []
         var body: Data?
         var authenticated: Bool = true
+        var headers: [String: String] = [:]
     }
 
     /// Keys and tokens from links are letters and digits, but they come from outside the app,
     /// so anything else is escaped rather than trusted to stay inside one path segment.
+    static func keyHeader(_ key: String?) -> [String: String] {
+        guard let key = key, !key.isEmpty else { return [:] }
+        return ["Idempotency-Key": key]
+    }
+
     static func pathSafe(_ text: String) -> String {
         var allowed = CharacterSet.alphanumerics
         allowed.insert(charactersIn: "-._~")
@@ -370,6 +411,9 @@ extension APIClient {
         }
         if let token = token {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        for (name, value) in endpoint.headers {
+            request.setValue(value, forHTTPHeaderField: name)
         }
 
         do {
