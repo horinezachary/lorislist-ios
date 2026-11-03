@@ -357,6 +357,9 @@ struct ListsSidebar: View {
             }
         }
         .listStyle(.plain)
+        // Matches the column behind it: white, or a dark grey a step above the open list's black.
+        .scrollContentBackground(.hidden)
+        .background(Theme.cardBackground)
         // The rows keep the app's blue; the white below is for the buttons on the blue bar.
         .tint(Theme.link)
         .refreshable { await model.load() }
