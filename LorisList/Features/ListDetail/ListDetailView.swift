@@ -247,9 +247,11 @@ struct ListDetailView: View {
         .toolbar { toolbarContent(summary: summary) }
         .tint(barText)
         // The back button takes its colour from the navigation stack, so tell it to match the bar.
-        .onAppear { app.navigationTint = NavigationTint(listID: model.listID, color: barText) }
+        .onAppear {
+            app.navigationTint = NavigationTint(listID: model.listID, color: barText, barColor: barColor)
+        }
         .onChange(of: summary.color) { _, _ in
-            app.navigationTint = NavigationTint(listID: model.listID, color: barText)
+            app.navigationTint = NavigationTint(listID: model.listID, color: barText, barColor: barColor)
         }
         .onDisappear {
             if app.navigationTint?.listID == model.listID { app.navigationTint = nil }

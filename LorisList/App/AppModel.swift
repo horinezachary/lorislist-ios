@@ -279,4 +279,6 @@ final class AppModel: ObservableObject {
 struct NavigationTint: Equatable {
     let listID: Int
     let color: Color
+    /// The bar's own colour, for the strip above it (see `StackMainView`).
+    let barColor: Color
 }

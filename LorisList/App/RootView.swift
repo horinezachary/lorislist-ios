@@ -100,6 +100,22 @@ private struct StackMainView: View {
         }
         // The back button follows the stack's tint, so it matches whichever bar is showing.
         .tint(model.navigationTint?.color ?? Theme.link)
+        // On devices whose status bar sits at the side (iPhone Duo), the bar's colour stops short
+        // of the screen's top edge. A zero-height strip at the top that ignores the safe area
+        // paints the space above it in the bar's colour.
+        .overlay(alignment: .top) {
+            Group {
+                if let bar = model.navigationTint?.barColor {
+                    Rectangle().fill(bar)
+                } else {
+                    Rectangle().fill(Theme.navGradient)
+                }
+            }
+            .ignoresSafeArea(edges: .top)
+            .frame(height: 0)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 }
 
