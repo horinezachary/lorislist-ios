@@ -127,7 +127,7 @@ struct HomeView: View {
                     } else {
                         Text("Can't reach Lori's List. Your lists will appear here once you're connected.")
                             .font(.subheadline)
-                            .foregroundColor(Color(hex: "495057"))
+                            .foregroundColor(Theme.mutedText)
                             .multilineTextAlignment(.center)
                             .padding(20)
                     }
@@ -135,7 +135,7 @@ struct HomeView: View {
                     RowDivider()
                     Text("You don't have any lists yet. Tap New List to make your first one.")
                         .font(.subheadline)
-                        .foregroundColor(Color(hex: "495057"))
+                        .foregroundColor(Theme.mutedText)
                         .multilineTextAlignment(.center)
                         .padding(20)
                 }

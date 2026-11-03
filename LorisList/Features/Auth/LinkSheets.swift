@@ -42,7 +42,7 @@ struct ResetPasswordSheet: View {
                 Banner(.error, message)
                 Text("Reset links stop working once they have been used or have expired. You can ask for a new one from the sign-in screen.")
                     .font(.subheadline)
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
                 HStack {
                     Spacer()
                     Button("OK") { dismiss() }
@@ -59,7 +59,7 @@ struct ResetPasswordSheet: View {
     private var form: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Choose a new password for your account. You will be signed out everywhere and asked to sign in again.")
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
 
             if let errorText {
                 Banner(.error, errorText)
@@ -193,10 +193,10 @@ struct InvitationSheet: View {
             ColorSwatch(hex: invitation.list.color, name: invitation.list.name, isSelected: false)
             Text(invitation.list.name)
                 .font(.title3.bold())
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
         }
         Text("\(invitation.list.owner) invited you to share this list. You will be able to \(access).")
-            .foregroundColor(.black)
+            .foregroundColor(Theme.text)
 
         if let errorText {
             Banner(.error, errorText)

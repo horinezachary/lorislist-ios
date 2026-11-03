@@ -91,7 +91,7 @@ struct LoginView: View {
                 VStack(spacing: 10) {
                     HStack(spacing: 4) {
                         Text("Don't have an account?")
-                            .foregroundColor(.black)
+                            .foregroundColor(Theme.text)
                         Button("Sign Up!") { onRegister() }
                     }
                     Button("Forgot your password?") { showReset = true }
@@ -292,7 +292,7 @@ struct ForgotPasswordSheet: View {
                 Banner(.success, "If that email address has an account, a reset link is on its way.")
                 Text("The link opens a screen where you can choose a new password. Then sign in with it.")
                     .font(.subheadline)
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
                 HStack {
                     Spacer()
                     Button("Done") { dismiss() }
@@ -300,7 +300,7 @@ struct ForgotPasswordSheet: View {
                 }
             } else {
                 Text("Enter your e-mail address and we'll send you a link to reset your password.")
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
 
                 if let errorText {
                     Banner(.error, errorText)

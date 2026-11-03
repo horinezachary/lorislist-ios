@@ -146,6 +146,7 @@ final class ListDetailModel: ObservableObject {
 struct ListDetailView: View {
     @EnvironmentObject private var app: AppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @StateObject private var model: ListDetailModel
     /// Set on iPad, where the list sits beside the list of lists: closing means showing no list,
     /// and a strip of the list's colour joins it to its row on the left.
@@ -301,7 +302,8 @@ struct ListDetailView: View {
                 .accessibilityHint("Removes the crossed-off items")
             }
 
-            if summary.role == .owner {
+            // On iPad there is room for Share beside Clear; on a phone it is in the menu.
+            if summary.role == .owner && sizeClass == .regular {
                 Button {
                     showShare = true
                 } label: {
@@ -311,6 +313,13 @@ struct ListDetailView: View {
 
             Menu {
                 if summary.role == .owner {
+                    if sizeClass != .regular {
+                        Button {
+                            showShare = true
+                        } label: {
+                            Label("Share List", systemImage: "person.badge.plus")
+                        }
+                    }
                     Button {
                         showEditor = true
                     } label: {
@@ -389,6 +398,7 @@ struct ListDetailView: View {
 
     // MARK: Add bar
 
+    /// Drawn in the list's colour, like the top bar.
     private func addBar(accent: Color, accentText: Color) -> some View {
         let matches = ItemInput.suggestions(for: newName, from: model.suggestionPool)
         return VStack(spacing: 8) {
@@ -403,6 +413,7 @@ struct ListDetailView: View {
                             .buttonStyle(.bordered)
                             .buttonBorderShape(.capsule)
                             .controlSize(.small)
+                            .tint(accentText)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -433,9 +444,9 @@ struct ListDetailView: View {
                 } label: {
                     Image(systemName: "arrow.up")
                         .font(.body.weight(.bold))
-                        .foregroundStyle(accentText)
+                        .foregroundStyle(accent)
                         .frame(width: 34, height: 34)
-                        .background(accent, in: Circle())
+                        .background(accentText, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .opacity(canAdd ? 1 : 0.35)
@@ -447,8 +458,7 @@ struct ListDetailView: View {
         .padding(.vertical, 10)
         .tint(Theme.link)
         .frame(maxWidth: .infinity)
-        .background(.bar)
-        .overlay(alignment: .top) { Divider() }
+        .background(accent)
     }
 
     private func close() {

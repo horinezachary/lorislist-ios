@@ -104,24 +104,33 @@ private struct StackMainView: View {
 }
 
 /// iPad: the list of lists stays on the left and the chosen list opens on the right.
+///
+/// Two stacks side by side rather than a split view: the system's split view floats its sidebar
+/// over the open list, leaving a gap at the screen's edge and the list's bar showing beneath it.
+/// Side by side, the list chooser runs to the top of the screen and its open row meets the
+/// colour strip of the open list.
 private struct SplitMainView: View {
     @EnvironmentObject private var model: AppModel
     @State private var selected: ListSummary?
     @State private var detailPath: [Route] = []
-    @State private var columns = NavigationSplitViewVisibility.all
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columns) {
-            ListsSidebar(
-                app: model,
-                selectedID: selected?.id,
-                onSelect: { list in
-                    selected = list
-                    detailPath = []
-                },
-                onShowAccount: { detailPath = [.account] })
-                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
-        } detail: {
+        HStack(spacing: 0) {
+            NavigationStack {
+                ListsSidebar(
+                    app: model,
+                    selectedID: selected?.id,
+                    onSelect: { list in
+                        selected = list
+                        detailPath = []
+                    },
+                    onShowAccount: { detailPath = [.account] })
+            }
+            .frame(width: 320)
+
+            Divider()
+                .ignoresSafeArea()
+
             NavigationStack(path: $detailPath) {
                 Group {
                     if let selected {
@@ -141,8 +150,8 @@ private struct SplitMainView: View {
                 }
             }
             .tint(model.navigationTint?.color ?? Theme.link)
+            .frame(maxWidth: .infinity)
         }
-        .navigationSplitViewStyle(.balanced)
         .onChange(of: model.listToOpen) { _, list in
             guard let list else { return }
             selected = list

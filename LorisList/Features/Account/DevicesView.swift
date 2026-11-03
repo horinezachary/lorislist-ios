@@ -90,7 +90,7 @@ struct DevicesView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Signing a device out means whoever has it must sign in again. If you lose a phone, sign out of all devices and change your password.")
                         .font(.subheadline)
-                        .foregroundColor(.black)
+                        .foregroundColor(Theme.text)
                     HStack {
                         Spacer()
                         Button("Sign out of all devices") { confirmAll = true }
@@ -125,7 +125,7 @@ struct DevicesView: View {
                 HStack(spacing: 8) {
                     Text(session.deviceName.isEmpty ? "Unknown device" : session.deviceName)
                         .font(.headline)
-                        .foregroundColor(.black)
+                        .foregroundColor(Theme.text)
                     if session.current {
                         Text("This device")
                             .font(.caption.weight(.semibold))
@@ -139,7 +139,7 @@ struct DevicesView: View {
                 if let used = session.lastUsedAt {
                     Text("Last used \(Self.relative(used))")
                         .font(.caption)
-                        .foregroundColor(Color(hex: "495057"))
+                        .foregroundColor(Theme.mutedText)
                 }
             }
             Spacer(minLength: 8)

@@ -35,14 +35,14 @@ struct AccountView: View {
                                 .font(.headline)
                             Text("See where you are signed in, and sign a device out.")
                                 .font(.subheadline)
-                                .foregroundColor(Color(hex: "495057"))
+                                .foregroundColor(Theme.mutedText)
                                 .multilineTextAlignment(.leading)
                         }
                         Spacer()
                         Image(systemName: "chevron.right")
-                            .foregroundColor(Color(hex: "495057"))
+                            .foregroundColor(Theme.mutedText)
                     }
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
                     .padding(20)
                     .contentShape(Rectangle())
                 }
@@ -90,11 +90,11 @@ struct AccountView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.headline)
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
                 if let value {
                     Text(value)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundColor(.black)
+                        .foregroundColor(Theme.text)
                 }
             }
             Spacer(minLength: 8)
@@ -113,9 +113,9 @@ struct AccountView: View {
                         .font(.headline)
                     Text("Permanently delete your account and your lists.")
                         .font(.subheadline)
-                        .foregroundColor(Color(hex: "495057"))
+                        .foregroundColor(Theme.mutedText)
                 }
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
                 Spacer(minLength: 8)
                 Button("Delete") { showDeleteAccount = true }
                     .buttonStyle(AppButtonStyle(kind: .danger, compact: true))
@@ -137,10 +137,10 @@ struct AccountView: View {
                 Text("Thanks,\nZachary Horine")
                 Text("Version \(versionText)")
                     .font(.caption)
-                    .foregroundColor(Color(hex: "495057"))
+                    .foregroundColor(Theme.mutedText)
             }
             .font(.subheadline)
-            .foregroundColor(.black)
+            .foregroundColor(Theme.text)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(20)
         }
@@ -194,7 +194,7 @@ struct EditAccountSheet: View {
                 Banner(.success, "Your password was changed.")
                 Text("Your other devices have been signed out, so they will ask for the new password.")
                     .font(.subheadline)
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
                 HStack {
                     Spacer()
                     Button("Done") { dismiss() }
@@ -322,10 +322,10 @@ struct DeleteAccountSheet: View {
 
             Text("This permanently deletes your account (\(app.user?.username ?? "")), every list you own and everything on them, and signs you out on all your devices. People you shared lists with lose them too. Lists other people shared with you stay theirs.")
                 .font(.subheadline)
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
             Text("This can't be undone.")
                 .font(.subheadline.weight(.semibold))
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
 
             SecureField("password", text: $password)
                 .textContentType(.password)
