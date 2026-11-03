@@ -203,8 +203,8 @@ struct ListDetailView: View {
             }
         }
         .refreshable { await model.load() }
-        // Messages that matter right now stay in view above the items.
-        .safeAreaInset(edge: .top, spacing: 0) {
+        // Messages float over the items, so the list never jumps when one comes or goes.
+        .overlay(alignment: .top) {
             topMessages
         }
         // A safe-area inset follows the keyboard, so the add bar rises with it.
@@ -339,24 +339,19 @@ struct ListDetailView: View {
         (app.user?.tipsEnabled ?? false) && !tipDismissed && model.list.canEdit
     }
 
-    @ViewBuilder
     private var topMessages: some View {
-        let sync = app.syncState
-        let hasSyncNotice = sync.droppedCount > 0 || !sync.isOnline || sync.pendingCount > 0
-        if hasSyncNotice || model.errorText != nil {
-            VStack(spacing: 8) {
-                SyncBanner()
-                if let errorText = model.errorText {
-                    Banner(.error, errorText)
-                        .onTapGesture { Task { await model.load() } }
-                        .accessibilityHint("Tap to try again")
-                }
+        VStack(spacing: 8) {
+            SyncBanner()
+            if let errorText = model.errorText {
+                Banner(.error, errorText)
+                    .onTapGesture { Task { await model.load() } }
+                    .accessibilityHint("Tap to try again")
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .frame(maxWidth: .infinity)
-            .background(.bar)
         }
+        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .animation(.easeInOut(duration: 0.2), value: model.errorText)
     }
 
     private var tipBanner: some View {
