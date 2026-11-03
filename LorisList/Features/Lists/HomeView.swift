@@ -305,8 +305,7 @@ private struct ListRow: View {
 
 // MARK: - iPad sidebar
 
-/// The lists on iPad, in a system list down the left. The open list's row is filled with its
-/// colour and runs into the colour strip at the edge of the open list, so the two read as one.
+/// The lists on iPad, in a system list down the left. The open list's row is filled with its colour.
 struct ListsSidebar: View {
     @EnvironmentObject private var app: AppModel
     @StateObject private var model: HomeModel
@@ -375,6 +374,8 @@ struct ListsSidebar: View {
             }
         }
         .navigationTitle("Lori's List")
+        // Inline, so the bar is the same height as the open list's beside it.
+        .navigationBarTitleDisplayMode(.inline)
         .brandedNavigationBar()
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {

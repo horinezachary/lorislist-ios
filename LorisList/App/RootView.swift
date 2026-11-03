@@ -107,8 +107,7 @@ private struct StackMainView: View {
 ///
 /// Two stacks side by side rather than a split view: the system's split view floats its sidebar
 /// over the open list, leaving a gap at the screen's edge and the list's bar showing beneath it.
-/// Side by side, the list chooser runs to the top of the screen and its open row meets the
-/// colour strip of the open list.
+/// Side by side, the list chooser runs to the top of the screen.
 private struct SplitMainView: View {
     @EnvironmentObject private var model: AppModel
     @State private var selected: ListSummary?
@@ -127,9 +126,11 @@ private struct SplitMainView: View {
                     onShowAccount: { detailPath = [.account] })
             }
             .frame(width: 320)
-
-            Divider()
-                .ignoresSafeArea()
+            // A soft shadow on the open list marks the edge between the two.
+            .background(Color(uiColor: .systemBackground).ignoresSafeArea())
+            .compositingGroup()
+            .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 0)
+            .zIndex(1)
 
             NavigationStack(path: $detailPath) {
                 Group {

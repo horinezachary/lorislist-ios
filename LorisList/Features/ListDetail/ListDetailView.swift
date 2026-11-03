@@ -148,8 +148,7 @@ struct ListDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.horizontalSizeClass) private var sizeClass
     @StateObject private var model: ListDetailModel
-    /// Set on iPad, where the list sits beside the list of lists: closing means showing no list,
-    /// and a strip of the list's colour joins it to its row on the left.
+    /// Set on iPad, where the list sits beside the list of lists: closing means showing no list.
     private let onClose: (() -> Void)?
 
     @State private var newName = ""
@@ -247,15 +246,6 @@ struct ListDetailView: View {
         .toolbarColorScheme(HexColor.prefersDarkText(on: summary.color) ? .light : .dark, for: .navigationBar)
         .toolbar { toolbarContent(summary: summary) }
         .tint(barText)
-        .overlay(alignment: .leading) {
-            if onClose != nil {
-                Rectangle()
-                    .fill(barColor)
-                    .frame(width: 4)
-                    .ignoresSafeArea()
-                    .accessibilityHidden(true)
-            }
-        }
         // The back button takes its colour from the navigation stack, so tell it to match the bar.
         .onAppear { app.navigationTint = NavigationTint(listID: model.listID, color: barText) }
         .onChange(of: summary.color) { _, _ in
