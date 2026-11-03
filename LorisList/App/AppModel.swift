@@ -25,6 +25,8 @@ final class AppModel: ObservableObject {
     @Published var pendingLink: AppLink?
     /// Set when an accepted invitation should take the person straight to that list.
     @Published var listToOpen: ListSummary?
+    /// The colour of the back button while an open list draws the top bar in its own colour.
+    @Published var navigationTint: Color?
 
     /// Whether the phone is talking to the server, and what is waiting to be sent. Drives the banner.
     @Published private(set) var syncState = SyncState()

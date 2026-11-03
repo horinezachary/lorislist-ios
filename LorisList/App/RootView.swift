@@ -92,5 +92,7 @@ struct MainView: View {
                     }
                 }
         }
+        // The back button follows the stack's tint, so it matches whichever bar is showing.
+        .tint(model.navigationTint ?? Theme.link)
     }
 }
