@@ -93,11 +93,13 @@ struct HomeView: View {
     enum HomeSheet: Identifiable {
         case create
         case edit(ListSummary)
+        case share(ListSummary)
 
         var id: String {
             switch self {
             case .create: return "create"
             case .edit(let list): return "edit-\(list.id)"
+            case .share(let list): return "share-\(list.id)"
             }
         }
     }
@@ -143,6 +145,7 @@ struct HomeView: View {
                     ListRow(
                         list: list,
                         onEdit: { sheet = .edit(list) },
+                        onShare: { sheet = .share(list) },
                         onDelete: { listToDelete = list },
                         onLeave: nil)
                 }
@@ -164,6 +167,7 @@ struct HomeView: View {
                         ListRow(
                             list: list,
                             onEdit: nil,
+                            onShare: nil,
                             onDelete: nil,
                             onLeave: { listToLeave = list })
                     }
@@ -197,6 +201,8 @@ struct HomeView: View {
                 ListEditorSheet(mode: .edit(list), colors: app.colors) { name, color in
                     try await model.update(list, name: name, color: color)
                 }
+            case .share(let list):
+                ShareSheet(list: list, api: app.api)
             }
         }
         .alert(
@@ -232,6 +238,7 @@ struct HomeView: View {
 private struct ListRow: View {
     let list: ListSummary
     let onEdit: (() -> Void)?
+    let onShare: (() -> Void)?
     let onDelete: (() -> Void)?
     let onLeave: (() -> Void)?
 
@@ -264,6 +271,11 @@ private struct ListRow: View {
                         Label("Edit", systemImage: "pencil")
                     }
                 }
+                if let onShare {
+                    Button(action: onShare) {
+                        Label("Share", systemImage: "person.badge.plus")
+                    }
+                }
                 if let onDelete {
                     Button(role: .destructive, action: onDelete) {
                         Label("Delete", systemImage: "trash")
@@ -288,5 +300,206 @@ private struct ListRow: View {
     private var subtitle: String {
         let what = list.role == .edit ? "you can edit" : "view only"
         return "Shared by \(list.owner) · \(what)"
+    }
+}
+
+// MARK: - iPad sidebar
+
+/// The lists on iPad, in a system list down the left. The open list's row is filled with its
+/// colour and runs into the colour strip at the edge of the open list, so the two read as one.
+struct ListsSidebar: View {
+    @EnvironmentObject private var app: AppModel
+    @StateObject private var model: HomeModel
+
+    let selectedID: Int?
+    let onSelect: (ListSummary) -> Void
+    let onShowAccount: () -> Void
+
+    @State private var sheet: HomeView.HomeSheet?
+    @State private var listToDelete: ListSummary?
+    @State private var listToLeave: ListSummary?
+
+    init(app: AppModel, selectedID: Int?, onSelect: @escaping (ListSummary) -> Void,
+         onShowAccount: @escaping () -> Void) {
+        _model = StateObject(wrappedValue: HomeModel(
+            api: app.api, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
+        self.selectedID = selectedID
+        self.onSelect = onSelect
+        self.onShowAccount = onShowAccount
+    }
+
+    var body: some View {
+        List {
+            Section("My Lists") {
+                if !model.hasLoaded && model.errorText == nil {
+                    if app.syncState.isOnline {
+                        ProgressView().frame(maxWidth: .infinity)
+                    } else {
+                        Text("Can't reach Lori's List. Your lists will appear here once you're connected.")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                } else if model.groups.mine.isEmpty && model.hasLoaded {
+                    Text("You don't have any lists yet. Tap + to make your first one.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                ForEach(model.groups.mine) { list in
+                    row(list)
+                }
+            }
+
+            if !model.groups.shared.isEmpty {
+                Section("Shared Lists") {
+                    ForEach(model.groups.shared) { list in
+                        row(list)
+                    }
+                }
+            }
+        }
+        .listStyle(.plain)
+        // The rows keep the app's blue; the white below is for the buttons on the blue bar.
+        .tint(Theme.link)
+        .refreshable { await model.load() }
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if let errorText = model.errorText {
+                Banner(.error, errorText)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.bar)
+            } else {
+                SyncBanner()
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, app.syncState.isOnline && app.syncState.pendingCount == 0
+                             && app.syncState.droppedCount == 0 ? 0 : 8)
+            }
+        }
+        .navigationTitle("Lori's List")
+        .brandedNavigationBar()
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    sheet = .create
+                } label: {
+                    Label("New List", systemImage: "plus")
+                }
+                Button(action: onShowAccount) {
+                    Label("My Account", systemImage: "person.crop.circle.fill")
+                }
+            }
+        }
+        .tint(.white)
+        .task {
+            await model.load()
+            await app.loadColors()
+        }
+        .sheet(item: $sheet) { current in
+            switch current {
+            case .create:
+                ListEditorSheet(mode: .create, colors: app.colors) { name, color in
+                    try await model.create(name: name, color: color)
+                }
+            case .edit(let list):
+                ListEditorSheet(mode: .edit(list), colors: app.colors) { name, color in
+                    try await model.update(list, name: name, color: color)
+                }
+            case .share(let list):
+                ShareSheet(list: list, api: app.api)
+            }
+        }
+        .alert(
+            "Delete List",
+            isPresented: Binding(get: { listToDelete != nil }, set: { if !$0 { listToDelete = nil } }),
+            presenting: listToDelete
+        ) { list in
+            Button("Yes", role: .destructive) {
+                Task { await model.delete(list) }
+            }
+            Button("No", role: .cancel) {}
+        } message: { list in
+            Text("You are about to delete your \"\(list.name)\" list, are you sure?")
+        }
+        .alert(
+            "Unsubscribe from List",
+            isPresented: Binding(get: { listToLeave != nil }, set: { if !$0 { listToLeave = nil } }),
+            presenting: listToLeave
+        ) { list in
+            Button("Yes", role: .destructive) {
+                Task { await model.leave(list) }
+            }
+            Button("No", role: .cancel) {}
+        } message: { list in
+            Text("You are about to remove your permissions for \(list.name). You will have to be re-invited by the owner if you would like access to this list again, are you sure?")
+        }
+    }
+
+    private func row(_ list: ListSummary) -> some View {
+        let isSelected = list.id == selectedID
+        let foreground = Color.foreground(on: list.color)
+
+        return Button {
+            onSelect(list)
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .fill(Color(hex: list.color))
+                    .overlay(Circle().stroke(foreground.opacity(isSelected ? 0.6 : 0), lineWidth: 1.5))
+                    .frame(width: 14, height: 14)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(list.name)
+                        .font(.body.weight(isSelected ? .semibold : .regular))
+                        .lineLimit(2)
+                    if list.role != .owner {
+                        Text(list.role == .edit
+                             ? "Shared by \(list.owner) · you can edit"
+                             : "Shared by \(list.owner) · view only")
+                            .font(.caption)
+                            .opacity(0.8)
+                    }
+                }
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(isSelected ? foreground : Color.primary)
+            .padding(.vertical, 6)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .listRowBackground(isSelected ? Color(hex: list.color) : Color.clear)
+        .listRowSeparator(isSelected ? .hidden : .automatic)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .swipeActions(edge: .trailing) {
+            actions(for: list)
+        }
+        .contextMenu {
+            actions(for: list)
+        }
+    }
+
+    @ViewBuilder
+    private func actions(for list: ListSummary) -> some View {
+        if list.role == .owner {
+            Button(role: .destructive) {
+                listToDelete = list
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+            Button {
+                sheet = .edit(list)
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            Button {
+                sheet = .share(list)
+            } label: {
+                Label("Share", systemImage: "person.badge.plus")
+            }
+        } else {
+            Button(role: .destructive) {
+                listToLeave = list
+            } label: {
+                Label("Unsubscribe", systemImage: "person.badge.minus")
+            }
+        }
     }
 }

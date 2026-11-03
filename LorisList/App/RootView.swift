@@ -68,8 +68,21 @@ struct LaunchView: View {
     }
 }
 
-/// Everything after sign-in.
+/// Everything after sign-in: a stack of screens on iPhone, and the lists beside the open list on iPad.
 struct MainView: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        if sizeClass == .regular {
+            SplitMainView()
+        } else {
+            StackMainView()
+        }
+    }
+}
+
+/// iPhone: the home screen, with a list sliding in over it.
+private struct StackMainView: View {
     @EnvironmentObject private var model: AppModel
     @State private var path: [Route] = []
 
@@ -82,17 +95,71 @@ struct MainView: View {
                     model.listToOpen = nil
                 }
                 .navigationDestination(for: Route.self) { route in
-                    switch route {
-                    case .list(let summary):
-                        ListDetailView(summary: summary, app: model)
-                    case .account:
-                        AccountView()
-                    case .devices:
-                        DevicesView(api: model.api)
-                    }
+                    destination(for: route, model: model)
                 }
         }
         // The back button follows the stack's tint, so it matches whichever bar is showing.
-        .tint(model.navigationTint ?? Theme.link)
+        .tint(model.navigationTint?.color ?? Theme.link)
+    }
+}
+
+/// iPad: the list of lists stays on the left and the chosen list opens on the right.
+private struct SplitMainView: View {
+    @EnvironmentObject private var model: AppModel
+    @State private var selected: ListSummary?
+    @State private var detailPath: [Route] = []
+    @State private var columns = NavigationSplitViewVisibility.all
+
+    var body: some View {
+        NavigationSplitView(columnVisibility: $columns) {
+            ListsSidebar(
+                app: model,
+                selectedID: selected?.id,
+                onSelect: { list in
+                    selected = list
+                    detailPath = []
+                },
+                onShowAccount: { detailPath = [.account] })
+                .navigationSplitViewColumnWidth(min: 280, ideal: 320, max: 400)
+        } detail: {
+            NavigationStack(path: $detailPath) {
+                Group {
+                    if let selected {
+                        ListDetailView(summary: selected, app: model, onClose: { self.selected = nil })
+                            .id(selected.id)
+                    } else {
+                        ContentUnavailableView(
+                            "No List Open",
+                            systemImage: "list.bullet",
+                            description: Text("Choose a list on the left."))
+                            .navigationTitle("")
+                            .navigationBarTitleDisplayMode(.inline)
+                    }
+                }
+                .navigationDestination(for: Route.self) { route in
+                    destination(for: route, model: model)
+                }
+            }
+            .tint(model.navigationTint?.color ?? Theme.link)
+        }
+        .navigationSplitViewStyle(.balanced)
+        .onChange(of: model.listToOpen) { _, list in
+            guard let list else { return }
+            selected = list
+            detailPath = []
+            model.listToOpen = nil
+        }
+    }
+}
+
+@MainActor @ViewBuilder
+private func destination(for route: Route, model: AppModel) -> some View {
+    switch route {
+    case .list(let summary):
+        ListDetailView(summary: summary, app: model)
+    case .account:
+        AccountView()
+    case .devices:
+        DevicesView(api: model.api)
     }
 }

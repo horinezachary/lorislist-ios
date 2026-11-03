@@ -147,6 +147,9 @@ struct ListDetailView: View {
     @EnvironmentObject private var app: AppModel
     @Environment(\.dismiss) private var dismiss
     @StateObject private var model: ListDetailModel
+    /// Set on iPad, where the list sits beside the list of lists: closing means showing no list,
+    /// and a strip of the list's colour joins it to its row on the left.
+    private let onClose: (() -> Void)?
 
     @State private var newName = ""
     @State private var newCount = ""
@@ -158,7 +161,8 @@ struct ListDetailView: View {
     @State private var tipDismissed = false
     @FocusState private var nameFocused: Bool
 
-    init(summary: ListSummary, app: AppModel) {
+    init(summary: ListSummary, app: AppModel, onClose: (() -> Void)? = nil) {
+        self.onClose = onClose
         _model = StateObject(wrappedValue: ListDetailModel(
             summary: summary, api: app.api, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
     }
@@ -219,7 +223,7 @@ struct ListDetailView: View {
         }
         .alert("Delete List", isPresented: $confirmDelete) {
             Button("Yes", role: .destructive) {
-                Task { if await model.delete() { dismiss() } }
+                Task { if await model.delete() { close() } }
             }
             Button("No", role: .cancel) {}
         } message: {
@@ -227,7 +231,7 @@ struct ListDetailView: View {
         }
         .alert("Unsubscribe from List", isPresented: $confirmLeave) {
             Button("Yes", role: .destructive) {
-                Task { if await model.leave() { dismiss() } }
+                Task { if await model.leave() { close() } }
             }
             Button("No", role: .cancel) {}
         } message: {
@@ -242,13 +246,26 @@ struct ListDetailView: View {
         .toolbarColorScheme(HexColor.prefersDarkText(on: summary.color) ? .light : .dark, for: .navigationBar)
         .toolbar { toolbarContent(summary: summary) }
         .tint(barText)
+        .overlay(alignment: .leading) {
+            if onClose != nil {
+                Rectangle()
+                    .fill(barColor)
+                    .frame(width: 4)
+                    .ignoresSafeArea()
+                    .accessibilityHidden(true)
+            }
+        }
         // The back button takes its colour from the navigation stack, so tell it to match the bar.
-        .onAppear { app.navigationTint = barText }
-        .onChange(of: summary.color) { _, _ in app.navigationTint = barText }
-        .onDisappear { app.navigationTint = nil }
+        .onAppear { app.navigationTint = NavigationTint(listID: model.listID, color: barText) }
+        .onChange(of: summary.color) { _, _ in
+            app.navigationTint = NavigationTint(listID: model.listID, color: barText)
+        }
+        .onDisappear {
+            if app.navigationTint?.listID == model.listID { app.navigationTint = nil }
+        }
         .task { await model.load() }
         .onChange(of: model.isGone) { _, gone in
-            if gone { dismiss() }
+            if gone { close() }
         }
     }
 
@@ -432,6 +449,10 @@ struct ListDetailView: View {
         .frame(maxWidth: .infinity)
         .background(.bar)
         .overlay(alignment: .top) { Divider() }
+    }
+
+    private func close() {
+        if let onClose { onClose() } else { dismiss() }
     }
 
     private var canAdd: Bool {
