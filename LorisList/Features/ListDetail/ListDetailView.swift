@@ -203,8 +203,8 @@ struct ListDetailView: View {
             }
         }
         .refreshable { await model.load() }
-        // Messages float over the items, so the list never jumps when one comes or goes.
-        .overlay(alignment: .top) {
+        // Messages sit in a bar above the items and push them down while they show.
+        .safeAreaInset(edge: .top, spacing: 0) {
             topMessages
         }
         // A safe-area inset follows the keyboard, so the add bar rises with it.
@@ -340,17 +340,18 @@ struct ListDetailView: View {
     }
 
     private var topMessages: some View {
-        VStack(spacing: 8) {
-            SyncBanner()
+        VStack(spacing: 0) {
+            SyncBanner(asBar: true)
             if let errorText = model.errorText {
                 Banner(.error, errorText)
                     .onTapGesture { Task { await model.load() } }
                     .accessibilityHint("Tap to try again")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(.bar)
             }
         }
-        .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
         .animation(.easeInOut(duration: 0.2), value: model.errorText)
     }
 

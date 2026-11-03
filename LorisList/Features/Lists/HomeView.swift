@@ -363,17 +363,18 @@ struct ListsSidebar: View {
         // The rows keep the app's blue; the white below is for the buttons on the blue bar.
         .tint(Theme.link)
         .refreshable { await model.load() }
-        // Messages float over the lists, so nothing jumps when one comes or goes.
-        .overlay(alignment: .top) {
-            VStack(spacing: 8) {
-                SyncBanner()
+        // Messages sit in a bar above the lists and push them down while they show.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            VStack(spacing: 0) {
+                SyncBanner(asBar: true)
                 if let errorText = model.errorText {
                     Banner(.error, errorText)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity)
+                        .background(.bar)
                 }
             }
-            .shadow(color: .black.opacity(0.15), radius: 6, y: 2)
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
         }
         .navigationTitle("Lori's List")
         // Inline, so the bar is the same height as the open list's beside it.

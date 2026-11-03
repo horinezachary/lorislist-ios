@@ -9,6 +9,8 @@ import LorisListKit
 /// it never flashes on and off as items are tapped.
 struct SyncBanner: View {
     @EnvironmentObject private var app: AppModel
+    /// Draws the notices in a bar of their own above a list, padded, only while one shows.
+    var asBar = false
 
     /// How long changes may wait to be saved before the banner says so.
     static let savingDelay: Duration = .seconds(15)
@@ -24,6 +26,21 @@ struct SyncBanner: View {
 
     var body: some View {
         let state = app.syncState
+        let isEmpty = state.droppedCount == 0 && shown == nil
+        notices(state)
+            .padding(.horizontal, asBar && !isEmpty ? 16 : 0)
+            .padding(.vertical, asBar && !isEmpty ? 8 : 0)
+            .frame(maxWidth: asBar && !isEmpty ? .infinity : nil)
+            .background {
+                if asBar && !isEmpty {
+                    Rectangle().fill(.bar).ignoresSafeArea(edges: .horizontal)
+                }
+            }
+            .animation(.easeInOut(duration: 0.2), value: shown)
+            .task(id: wanted(state)) { await settle(on: wanted(state)) }
+    }
+
+    private func notices(_ state: SyncState) -> some View {
         VStack(spacing: 8) {
             if state.droppedCount > 0 {
                 Banner(.error, "Some changes couldn't be saved because the list was changed or removed by someone else. Tap to dismiss.")
@@ -39,8 +56,6 @@ struct SyncBanner: View {
                 EmptyView()
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: shown)
-        .task(id: wanted(state)) { await settle(on: wanted(state)) }
     }
 
     /// What the sync state calls for right now, before any delay.
