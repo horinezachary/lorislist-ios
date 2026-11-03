@@ -124,12 +124,41 @@ private struct SplitMainView: View {
             }
             detail
         }
+        // Swiping left across the edge between the two tucks the lists away; with them hidden,
+        // swiping right from the screen's left edge brings them back.
+        .overlay(alignment: .leading) {
+            if showsSidebar || detailPath.isEmpty {
+                Color.clear
+                    .frame(width: 28)
+                    .contentShape(Rectangle())
+                    .offset(x: showsSidebar ? Self.sidebarWidth - 14 : 0)
+                    .ignoresSafeArea()
+                    .gesture(
+                        DragGesture(minimumDistance: 12)
+                            .onEnded { drag in
+                                let dx = drag.translation.width
+                                guard abs(dx) > abs(drag.translation.height) else { return }
+                                if showsSidebar && dx < -40 {
+                                    setSidebar(false)
+                                } else if !showsSidebar && dx > 40 {
+                                    setSidebar(true)
+                                }
+                            })
+                    .accessibilityHidden(true)
+            }
+        }
         .onChange(of: model.listToOpen) { _, list in
             guard let list else { return }
             selected = list
             detailPath = []
             model.listToOpen = nil
         }
+    }
+
+    static let sidebarWidth: CGFloat = 320
+
+    private func setSidebar(_ shown: Bool) {
+        withAnimation(.easeInOut(duration: 0.25)) { showsSidebar = shown }
     }
 
     private var sidebar: some View {
@@ -143,7 +172,7 @@ private struct SplitMainView: View {
                 },
                 onShowAccount: { detailPath = [.account] })
         }
-        .frame(width: 320)
+        .frame(width: Self.sidebarWidth)
         // The edge between the two: a soft shadow in light mode, and in dark mode (where a
         // shadow on black can't be seen) a slightly lighter sidebar with a hairline edge.
         .background(Theme.cardBackground.ignoresSafeArea())
@@ -176,7 +205,7 @@ private struct SplitMainView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        withAnimation(.easeInOut(duration: 0.25)) { showsSidebar.toggle() }
+                        setSidebar(!showsSidebar)
                     } label: {
                         Label(showsSidebar ? "Hide Lists" : "Show Lists", systemImage: "sidebar.left")
                     }
