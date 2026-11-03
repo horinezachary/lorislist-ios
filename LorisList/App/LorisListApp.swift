@@ -20,8 +20,6 @@ struct LorisListApp: App {
                     if let url = activity.webpageURL { model.handle(url: url) }
                 }
                 .tint(Theme.link)
-                // The design is the website's: white cards on grey. It is not drawn for dark mode.
-                .preferredColorScheme(.light)
         }
     }
 }

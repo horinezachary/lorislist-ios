@@ -75,7 +75,7 @@ struct ListEditorSheet: View {
 
             Text("Colour")
                 .font(.subheadline.weight(.medium))
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 8)], spacing: 8) {
                 ForEach(options) { option in

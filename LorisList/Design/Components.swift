@@ -2,7 +2,7 @@ import SwiftUI
 
 // MARK: - Cards
 
-/// A white card, like Bootstrap's `.card`.
+/// A white card (dark grey in dark mode), like Bootstrap's `.card`.
 struct Card<Content: View>: View {
     private let content: Content
 
@@ -15,7 +15,7 @@ struct Card<Content: View>: View {
             content
         }
         .frame(maxWidth: .infinity)
-        .background(Color.white)
+        .background(Theme.cardBackground)
         .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
         .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 1)
     }
@@ -32,7 +32,7 @@ struct CardTitle: View {
     var body: some View {
         Text(text)
             .font(.title2.bold())
-            .foregroundColor(.black)
+            .foregroundColor(Theme.text)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
@@ -85,7 +85,7 @@ struct AppButtonStyle: ButtonStyle {
     var kind: Kind = .dark
     var compact = false
     /// Text and border colour of the `.outline` kind. Dark by default; pass white on dark list colours.
-    var outlineColor: Color = Theme.dark
+    var outlineColor: Color = .primary
 
     func makeBody(configuration: ButtonStyleConfiguration) -> some View {
         AppButtonBody(configuration: configuration, kind: kind, compact: compact, outlineColor: outlineColor)
@@ -201,16 +201,16 @@ struct IconField<Field: View>: View {
     var body: some View {
         HStack(spacing: 0) {
             Image(systemName: systemImage)
-                .foregroundColor(Color(hex: "495057"))
+                .foregroundColor(Theme.mutedText)
                 .frame(width: 42, height: 42)
                 .background(Theme.fieldIconBackground)
                 .accessibilityHidden(true)
             field
-                .foregroundColor(.black)
+                .foregroundColor(Theme.text)
                 .padding(.horizontal, 10)
                 .frame(height: 42)
         }
-        .background(Color.white)
+        .background(Theme.fieldBackground)
         .overlay(
             RoundedRectangle(cornerRadius: Theme.cornerRadius)
                 .stroke(Theme.fieldBorder, lineWidth: 1)
@@ -223,10 +223,10 @@ struct IconField<Field: View>: View {
 struct BoxedFieldStyle: ViewModifier {
     func body(content: Content) -> some View {
         content
-            .foregroundColor(.black)
+            .foregroundColor(Theme.text)
             .padding(.horizontal, 10)
             .frame(height: 42)
-            .background(Color.white)
+            .background(Theme.fieldBackground)
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.cornerRadius)
                     .stroke(Theme.fieldBorder, lineWidth: 1)
@@ -254,7 +254,7 @@ struct ColorSwatch: View {
             .fill(Color(hex: hex))
             .frame(width: 36, height: 36)
             .overlay(
-                Circle().stroke(Color.black, lineWidth: isSelected ? 4 : 0)
+                Circle().stroke(Color.primary, lineWidth: isSelected ? 4 : 0)
             )
             .frame(width: 44, height: 44)
             .contentShape(Circle())

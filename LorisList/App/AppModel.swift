@@ -25,6 +25,8 @@ final class AppModel: ObservableObject {
     @Published var pendingLink: AppLink?
     /// Set when an accepted invitation should take the person straight to that list.
     @Published var listToOpen: ListSummary?
+    /// The colour of the top bar's buttons while an open list draws the bar in its own colour.
+    @Published var navigationTint: NavigationTint?
 
     /// Whether the phone is talking to the server, and what is waiting to be sent. Drives the banner.
     @Published private(set) var syncState = SyncState()
@@ -270,4 +272,11 @@ final class AppModel: ObservableObject {
             colors = fresh
         }
     }
+}
+
+/// Set by the open list, so the back button matches its coloured bar. The list's id lets a list
+/// that is going away clear only its own colour, not the one of the list replacing it.
+struct NavigationTint: Equatable {
+    let listID: Int
+    let color: Color
 }

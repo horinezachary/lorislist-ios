@@ -19,10 +19,12 @@ final class ListDetailModel: ObservableObject {
     @Published var errorText: String?
 
     private let sync: SyncEngine
+    private let api: APIClient
     private var subscription: AnyCancellable?
     let listID: Int
 
-    init(summary: ListSummary, sync: SyncEngine, events: AnyPublisher<SyncEvent, Never>) {
+    init(summary: ListSummary, api: APIClient, sync: SyncEngine, events: AnyPublisher<SyncEvent, Never>) {
+        self.api = api
         self.sync = sync
         self.listID = summary.id
         // Draw the header in the right colour straight away; the items follow.
@@ -98,98 +100,267 @@ final class ListDetailModel: ObservableObject {
             list = updated
         }
     }
+
+    // Renaming, deleting and leaving the list need the server, as they do on the home screen.
+
+    func update(name: String, color: String) async throws {
+        _ = try await api.updateList(id: listID, name: name, color: color)
+        await sync.sync()
+        await reload(fromEvent: false)
+    }
+
+    /// Returns true when the list is gone and the screen should close.
+    func delete() async -> Bool {
+        await perform { try await self.api.deleteList(id: self.listID) }
+    }
+
+    /// Returns true when the person no longer has the list and the screen should close.
+    func leave() async -> Bool {
+        await perform { try await self.api.leaveList(id: self.listID) }
+    }
+
+    private func perform(_ request: () async throws -> Void) async -> Bool {
+        do {
+            try await request()
+            errorText = nil
+            // Tells the home screen, which follows the sync's events.
+            await sync.sync()
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            // An expired session already sent the person to the sign-in screen.
+            if let apiError = error as? APIError, apiError.code == .sessionExpired { return false }
+            errorText = error.localizedDescription
+            return false
+        }
+    }
 }
+
 
 // MARK: - View
 
+/// One list, drawn with the system's own pieces: the navigation bar takes the list's colour and
+/// name and holds its actions, the items run edge to edge, and the "add item" bar sits at the
+/// bottom of the screen and rides up with the keyboard.
 struct ListDetailView: View {
     @EnvironmentObject private var app: AppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @StateObject private var model: ListDetailModel
+    /// Set on iPad, where the list sits beside the list of lists: closing means showing no list.
+    private let onClose: (() -> Void)?
 
     @State private var newName = ""
     @State private var newCount = ""
     @State private var isAdding = false
     @State private var showShare = false
+    @State private var showEditor = false
+    @State private var confirmDelete = false
+    @State private var confirmLeave = false
     @State private var tipDismissed = false
     @FocusState private var nameFocused: Bool
 
-    init(summary: ListSummary, app: AppModel) {
+    init(summary: ListSummary, app: AppModel, onClose: (() -> Void)? = nil) {
+        self.onClose = onClose
         _model = StateObject(wrappedValue: ListDetailModel(
-            summary: summary, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
+            summary: summary, api: app.api, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
     }
 
     var body: some View {
         let summary = model.list.summary
-        let background = Color(hex: summary.color)
-        let foreground = Color.foreground(on: summary.color)
+        let barColor = Color(hex: summary.color)
+        let barText = Color.foreground(on: summary.color)
 
-        CardColumn(spacing: 12) {
-            SyncBanner()
+        List {
             if showTip {
                 tipBanner
-            }
-            if let errorText = model.errorText {
-                Banner(.error, errorText)
-                    .onTapGesture { Task { await model.load() } }
-                    .accessibilityHint("Tap to try again")
+                    .listRowSeparator(.hidden)
+                    .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
             }
 
-            Card {
-                header(summary: summary, background: background, foreground: foreground)
-
-                ForEach(model.list.items) { item in
-                    RowDivider()
-                    ItemRow(
-                        item: item,
-                        canEdit: model.list.canEdit,
-                        onToggle: {
-                            tickFeedback()
-                            Task { await model.toggle(item) }
-                        },
-                        onRemove: { Task { await model.remove(item) } })
-                }
-
-                if model.hasLoaded && model.list.items.isEmpty {
-                    RowDivider()
-                    Text(model.list.canEdit ? "Nothing on this list yet." : "Nothing on this list.")
-                        .font(.subheadline)
-                        .foregroundColor(Color(hex: "495057"))
-                        .padding(20)
-                        .frame(maxWidth: .infinity)
-                } else if !model.hasLoaded {
-                    RowDivider()
-                    ProgressView().padding(24)
-                }
-
-                if model.list.canEdit {
-                    addRow(background: background)
-                }
+            ForEach(model.list.items) { item in
+                ItemRow(
+                    item: item,
+                    canEdit: model.list.canEdit,
+                    onToggle: {
+                        tickFeedback()
+                        Task { await model.toggle(item) }
+                    },
+                    onRemove: { Task { await model.remove(item) } })
+            }
+        }
+        .listStyle(.plain)
+        .scrollDismissesKeyboard(.interactively)
+        .overlay {
+            if !model.hasLoaded {
+                ProgressView()
+            } else if model.list.items.isEmpty {
+                ContentUnavailableView(
+                    model.list.canEdit ? "Nothing on this list yet" : "Nothing on this list",
+                    systemImage: "checklist",
+                    description: model.list.canEdit ? Text("Add something with the box below.") : nil)
             }
         }
         .refreshable { await model.load() }
-        .navigationTitle("Lori's List")
-        .navigationBarTitleDisplayMode(.inline)
-        .brandedNavigationBar()
-        .task { await model.load() }
-        .onChange(of: model.isGone) { _, gone in
-            if gone { dismiss() }
+        // Messages sit in a bar above the items and push them down while they show.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            topMessages
+        }
+        // A safe-area inset follows the keyboard, so the add bar rises with it.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if model.list.canEdit {
+                addBar(accent: barColor, accentText: barText)
+            }
         }
         .sheet(isPresented: $showShare) {
             ShareSheet(list: summary, api: app.api)
         }
+        .sheet(isPresented: $showEditor) {
+            ListEditorSheet(mode: .edit(summary), colors: app.colors) { name, color in
+                try await model.update(name: name, color: color)
+            }
+        }
+        .alert("Delete List", isPresented: $confirmDelete) {
+            Button("Yes", role: .destructive) {
+                Task { if await model.delete() { close() } }
+            }
+            Button("No", role: .cancel) {}
+        } message: {
+            Text("You are about to delete your \"\(summary.name)\" list, are you sure?")
+        }
+        .alert("Unsubscribe from List", isPresented: $confirmLeave) {
+            Button("Yes", role: .destructive) {
+                Task { if await model.leave() { close() } }
+            }
+            Button("No", role: .cancel) {}
+        } message: {
+            Text("You are about to remove your permissions for \(summary.name). You will have to be re-invited by the owner if you would like access to this list again, are you sure?")
+        }
+        // Everything above keeps the app's blue; the top bar (below) is drawn in the list's colours.
+        .tint(Theme.link)
+        .navigationTitle(summary.name)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(barColor, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
+        .toolbarColorScheme(HexColor.prefersDarkText(on: summary.color) ? .light : .dark, for: .navigationBar)
+        .toolbar { toolbarContent(summary: summary) }
+        .tint(barText)
+        // The back button takes its colour from the navigation stack, so tell it to match the bar.
+        .onAppear { app.navigationTint = NavigationTint(listID: model.listID, color: barText) }
+        .onChange(of: summary.color) { _, _ in
+            app.navigationTint = NavigationTint(listID: model.listID, color: barText)
+        }
+        .onDisappear {
+            if app.navigationTint?.listID == model.listID { app.navigationTint = nil }
+        }
+        .task { await model.load() }
+        .onChange(of: model.isGone) { _, gone in
+            if gone { close() }
+        }
     }
 
-    // MARK: Pieces
+    // MARK: Top bar
+
+    @ToolbarContentBuilder
+    private func toolbarContent(summary: ListSummary) -> some ToolbarContent {
+        // A shared list says whose it is under its name.
+        if summary.role != .owner {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 0) {
+                    Text(summary.name)
+                        .font(.headline)
+                        .lineLimit(1)
+                    Text(summary.role == .edit
+                         ? "Shared by \(summary.owner) · you can edit"
+                         : "Shared by \(summary.owner) · view only")
+                        .font(.caption2)
+                        .lineLimit(1)
+                }
+                .foregroundStyle(Color.foreground(on: summary.color))
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.isHeader)
+            }
+        }
+
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            if model.list.canEdit {
+                Button {
+                    Task { await model.clearCrossedOff() }
+                } label: {
+                    Label("Clear", systemImage: "eraser")
+                }
+                .disabled(model.list.checkedCount == 0)
+                .accessibilityHint("Removes the crossed-off items")
+            }
+
+            // On iPad there is room for Share beside Clear; on a phone it is in the menu.
+            if summary.role == .owner && sizeClass == .regular {
+                Button {
+                    showShare = true
+                } label: {
+                    Label("Share List", systemImage: "person.badge.plus")
+                }
+            }
+
+            Menu {
+                if summary.role == .owner {
+                    if sizeClass != .regular {
+                        Button {
+                            showShare = true
+                        } label: {
+                            Label("Share List", systemImage: "person.badge.plus")
+                        }
+                    }
+                    Button {
+                        showEditor = true
+                    } label: {
+                        Label("Edit List", systemImage: "pencil")
+                    }
+                    Button(role: .destructive) {
+                        confirmDelete = true
+                    } label: {
+                        Label("Delete List", systemImage: "trash")
+                    }
+                } else {
+                    Button(role: .destructive) {
+                        confirmLeave = true
+                    } label: {
+                        Label("Unsubscribe", systemImage: "person.badge.minus")
+                    }
+                }
+            } label: {
+                Label("List Options", systemImage: "ellipsis.circle")
+            }
+        }
+    }
+
+    // MARK: Messages
 
     private var showTip: Bool {
         (app.user?.tipsEnabled ?? false) && !tipDismissed && model.list.canEdit
     }
 
+    private var topMessages: some View {
+        VStack(spacing: 0) {
+            SyncBanner(asBar: true)
+            if let errorText = model.errorText {
+                Banner(.error, errorText)
+                    .onTapGesture { Task { await model.load() } }
+                    .accessibilityHint("Tap to try again")
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .frame(maxWidth: .infinity)
+                    .background(.bar)
+            }
+        }
+        .animation(.easeInOut(duration: 0.2), value: model.errorText)
+    }
+
     private var tipBanner: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Welcome to your list! Here you can add things to your list using the text box below.")
-            Text("Tap an item to cross it off.")
+            Text("Tap an item to cross it off, or swipe it to remove it.")
             Text("When you are done, tap Clear to remove the crossed-off items from your list.")
             Divider()
             HStack {
@@ -201,79 +372,39 @@ struct ListDetailView: View {
                     withAnimation { tipDismissed = true }
                 }
             }
+            .buttonStyle(.borderless)
             .font(.footnote.weight(.semibold))
         }
         .font(.subheadline)
         .foregroundColor(Theme.alertInfoText)
+        .tint(Theme.alertInfoText)
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Theme.alertInfoBackground)
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    private func header(summary: ListSummary, background: Color, foreground: Color) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .top, spacing: 8) {
-                Text(summary.name)
-                    .font(.title2.bold())
-                    .lineLimit(3)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .accessibilityAddTraits(.isHeader)
+    // MARK: Add bar
 
-                if summary.role == .owner {
-                    Button {
-                        showShare = true
-                    } label: {
-                        Image(systemName: "person.badge.plus")
-                    }
-                    .buttonStyle(AppButtonStyle(kind: .outline, compact: true, outlineColor: foreground))
-                    .accessibilityLabel("Share list")
-                }
-
-                Button("Clear") {
-                    Task { await model.clearCrossedOff() }
-                }
-                .buttonStyle(AppButtonStyle(kind: .outline, compact: true, outlineColor: foreground))
-                .disabled(!model.list.canEdit || model.list.checkedCount == 0)
-                .accessibilityHint("Removes the crossed-off items")
-            }
-
-            if summary.role != .owner {
-                Text(summary.role == .edit
-                     ? "Shared by \(summary.owner) · you can edit"
-                     : "Shared by \(summary.owner) · view only")
-                    .font(.caption)
-            }
-        }
-        .foregroundColor(foreground)
-        .padding(.horizontal, 20)
-        .padding(.vertical, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(background)
-    }
-
-    private func addRow(background: Color) -> some View {
+    /// Drawn in the list's colour, like the top bar.
+    private func addBar(accent: Color, accentText: Color) -> some View {
         let matches = ItemInput.suggestions(for: newName, from: model.suggestionPool)
-        return VStack(spacing: 10) {
+        return VStack(spacing: 8) {
             if !matches.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         ForEach(matches, id: \.self) { name in
-                            Button {
+                            Button(name) {
                                 newName = name
                                 nameFocused = true
-                            } label: {
-                                Text(name)
-                                    .font(.subheadline)
-                                    .foregroundColor(.black)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(Color.white)
-                                    .clipShape(Capsule())
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.capsule)
+                            .controlSize(.small)
+                            .tint(accentText)
                         }
                     }
+                    .padding(.horizontal, 16)
                 }
             }
 
@@ -281,11 +412,11 @@ struct ListDetailView: View {
                 TextField("#", text: $newCount)
                     .keyboardType(.numberPad)
                     .multilineTextAlignment(.center)
-                    .boxedField()
-                    .frame(width: 64)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 56)
                     .accessibilityLabel("Quantity")
 
-                TextField("Item", text: $newName)
+                TextField("Add an item", text: $newName)
                     .focused($nameFocused)
                     .submitLabel(.send)
                     .onSubmit { Task { await addItem() } }
@@ -294,27 +425,32 @@ struct ListDetailView: View {
                             newName = String(value.prefix(ItemInput.maxNameLength))
                         }
                     }
-                    .boxedField()
+                    .textFieldStyle(.roundedBorder)
 
                 Button {
                     Task { await addItem() }
                 } label: {
-                    Image(systemName: "arrow.right")
-                        .font(.body.weight(.semibold))
-                        .foregroundColor(.white)
-                        .frame(width: 44, height: 42)
-                        .background(Theme.dark)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.cornerRadius))
+                    Image(systemName: "arrow.up")
+                        .font(.body.weight(.bold))
+                        .foregroundStyle(accent)
+                        .frame(width: 34, height: 34)
+                        .background(accentText, in: Circle())
                 }
                 .buttonStyle(.plain)
-                .opacity(canAdd ? 1 : 0.4)
+                .opacity(canAdd ? 1 : 0.35)
                 .disabled(!canAdd)
                 .accessibilityLabel("Add item")
             }
+            .padding(.horizontal, 16)
         }
-        .padding(12)
+        .padding(.vertical, 10)
+        .tint(Theme.link)
         .frame(maxWidth: .infinity)
-        .background(background)
+        .background(accent)
+    }
+
+    private func close() {
+        if let onClose { onClose() } else { dismiss() }
     }
 
     private var canAdd: Bool {
@@ -344,6 +480,7 @@ struct ListDetailView: View {
 // MARK: - Item row
 
 /// "2 - Milk". Tapping crosses it off: grey and struck through, as on the website.
+/// Swiping it, or a long press, removes it.
 private struct ItemRow: View {
     let item: ListItem
     let canEdit: Bool
@@ -352,17 +489,18 @@ private struct ItemRow: View {
 
     var body: some View {
         Button(action: onToggle) {
-            HStack(spacing: 0) {
-                label
-                Spacer(minLength: 0)
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.white)
-            .contentShape(Rectangle())
+            label
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+            if canEdit {
+                Button(role: .destructive, action: onRemove) {
+                    Label("Remove", systemImage: "trash")
+                }
+            }
+        }
         .contextMenu {
             if canEdit {
                 Button(role: .destructive, action: onRemove) {
@@ -380,7 +518,7 @@ private struct ItemRow: View {
         let prefix = item.count.map { "\($0) - " } ?? ""
         return Text(prefix + item.name)
             .strikethrough(item.checked)
-            .foregroundColor(item.checked ? .gray : .black)
+            .foregroundColor(item.checked ? .secondary : .primary)
     }
 
     private var spokenName: String {

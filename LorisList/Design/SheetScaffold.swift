@@ -22,7 +22,7 @@ struct SheetScaffold<Content: View>: View {
                 .padding(20)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .background(Color.white.ignoresSafeArea())
+            .background(Theme.cardBackground.ignoresSafeArea())
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(title)
             .navigationBarTitleDisplayMode(.inline)

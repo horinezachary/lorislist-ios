@@ -19,7 +19,7 @@ struct ShareSheet: View {
             if let sentTo {
                 Banner(.success, "Invitation sent to \(sentTo).")
                 Text("They will get an email with a link to accept it.")
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
                 HStack {
                     Button("Invite someone else") {
                         email = ""
@@ -32,7 +32,7 @@ struct ShareSheet: View {
                 }
             } else {
                 Text("Enter the email address you would like to share \"\(list.name)\" with and select their permission level.")
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
 
                 if let errorText {
                     Banner(.error, errorText)
@@ -49,7 +49,7 @@ struct ShareSheet: View {
 
                 Text("Permission Level")
                     .font(.subheadline.weight(.medium))
-                    .foregroundColor(.black)
+                    .foregroundColor(Theme.text)
 
                 Picker("Permission Level", selection: $permission) {
                     ForEach(SharePermission.allCases) { option in
@@ -62,7 +62,7 @@ struct ShareSheet: View {
                      ? "They can add, cross off and remove items."
                      : "They can see the list but not change it.")
                     .font(.footnote)
-                    .foregroundColor(Color(hex: "495057"))
+                    .foregroundColor(Theme.mutedText)
 
                 HStack {
                     Spacer()
