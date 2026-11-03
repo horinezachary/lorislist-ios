@@ -313,13 +313,17 @@ struct ListsSidebar: View {
     let selectedID: Int?
     let onSelect: (ListSummary) -> Void
     let onShowAccount: () -> Void
+    /// Tucks the list of lists away. Its button sits on this side while the lists show, and moves
+    /// to the open list's bar while they are hidden, as in the Files app.
+    let onHide: () -> Void
 
     @State private var sheet: HomeView.HomeSheet?
     @State private var listToDelete: ListSummary?
     @State private var listToLeave: ListSummary?
 
     init(app: AppModel, selectedID: Int?, onSelect: @escaping (ListSummary) -> Void,
-         onShowAccount: @escaping () -> Void) {
+         onShowAccount: @escaping () -> Void, onHide: @escaping () -> Void) {
+        self.onHide = onHide
         _model = StateObject(wrappedValue: HomeModel(
             api: app.api, sync: app.sync, events: app.syncEvents.eraseToAnyPublisher()))
         self.selectedID = selectedID
@@ -389,6 +393,9 @@ struct ListsSidebar: View {
                 }
                 Button(action: onShowAccount) {
                     Label("My Account", systemImage: "person.crop.circle.fill")
+                }
+                Button(action: onHide) {
+                    Label("Hide Lists", systemImage: "sidebar.left")
                 }
             }
         }

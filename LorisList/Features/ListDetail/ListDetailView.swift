@@ -285,8 +285,10 @@ struct ListDetailView: View {
 
         ToolbarItemGroup(placement: .topBarTrailing) {
             if model.list.canEdit {
-                Button("Clear") {
+                Button {
                     Task { await model.clearCrossedOff() }
+                } label: {
+                    Label("Clear", systemImage: "eraser")
                 }
                 .disabled(model.list.checkedCount == 0)
                 .accessibilityHint("Removes the crossed-off items")

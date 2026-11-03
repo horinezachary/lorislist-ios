@@ -170,7 +170,8 @@ private struct SplitMainView: View {
                     selected = list
                     detailPath = []
                 },
-                onShowAccount: { detailPath = [.account] })
+                onShowAccount: { detailPath = [.account] },
+                onHide: { setSidebar(false) })
         }
         .frame(width: Self.sidebarWidth)
         // The edge between the two: a soft shadow in light mode, and in dark mode (where a
@@ -203,11 +204,14 @@ private struct SplitMainView: View {
                 }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        setSidebar(!showsSidebar)
-                    } label: {
-                        Label(showsSidebar ? "Hide Lists" : "Show Lists", systemImage: "sidebar.left")
+                // While the lists show, their own bar holds this button.
+                if !showsSidebar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            setSidebar(true)
+                        } label: {
+                            Label("Show Lists", systemImage: "sidebar.left")
+                        }
                     }
                 }
             }
