@@ -243,14 +243,15 @@ struct ListDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(barColor, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
-        .barUnderlay(barColor)
         .toolbarColorScheme(HexColor.prefersDarkText(on: summary.color) ? .light : .dark, for: .navigationBar)
         .toolbar { toolbarContent(summary: summary) }
         .tint(barText)
         // The back button takes its colour from the navigation stack, so tell it to match the bar.
-        .onAppear { app.navigationTint = NavigationTint(listID: model.listID, color: barText) }
+        .onAppear {
+            app.navigationTint = NavigationTint(listID: model.listID, color: barText, barColor: barColor)
+        }
         .onChange(of: summary.color) { _, _ in
-            app.navigationTint = NavigationTint(listID: model.listID, color: barText)
+            app.navigationTint = NavigationTint(listID: model.listID, color: barText, barColor: barColor)
         }
         .onDisappear {
             if app.navigationTint?.listID == model.listID { app.navigationTint = nil }
