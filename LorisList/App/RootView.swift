@@ -112,53 +112,17 @@ private struct SplitMainView: View {
     @EnvironmentObject private var model: AppModel
     @State private var selected: ListSummary?
     @State private var detailPath: [Route] = []
+    /// The list of lists can be tucked away for more room, on a small iPad or in portrait.
+    @SceneStorage("showsListsSidebar") private var showsSidebar = true
 
     var body: some View {
         HStack(spacing: 0) {
-            NavigationStack {
-                ListsSidebar(
-                    app: model,
-                    selectedID: selected?.id,
-                    onSelect: { list in
-                        selected = list
-                        detailPath = []
-                    },
-                    onShowAccount: { detailPath = [.account] })
+            if showsSidebar {
+                sidebar
+                    .transition(.move(edge: .leading))
+                    .zIndex(1)
             }
-            .frame(width: 320)
-            // The edge between the two: a soft shadow in light mode, and in dark mode (where a
-            // shadow on black can't be seen) a slightly lighter sidebar with a hairline edge.
-            .background(Theme.cardBackground.ignoresSafeArea())
-            .overlay(alignment: .trailing) {
-                Rectangle()
-                    .fill(Color(uiColor: .separator))
-                    .frame(width: 1)
-                    .ignoresSafeArea()
-            }
-            .compositingGroup()
-            .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 0)
-            .zIndex(1)
-
-            NavigationStack(path: $detailPath) {
-                Group {
-                    if let selected {
-                        ListDetailView(summary: selected, app: model, onClose: { self.selected = nil })
-                            .id(selected.id)
-                    } else {
-                        ContentUnavailableView(
-                            "No List Open",
-                            systemImage: "list.bullet",
-                            description: Text("Choose a list on the left."))
-                            .navigationTitle("")
-                            .navigationBarTitleDisplayMode(.inline)
-                    }
-                }
-                .navigationDestination(for: Route.self) { route in
-                    destination(for: route, model: model)
-                }
-            }
-            .tint(model.navigationTint?.color ?? Theme.link)
-            .frame(maxWidth: .infinity)
+            detail
         }
         .onChange(of: model.listToOpen) { _, list in
             guard let list else { return }
@@ -166,6 +130,64 @@ private struct SplitMainView: View {
             detailPath = []
             model.listToOpen = nil
         }
+    }
+
+    private var sidebar: some View {
+        NavigationStack {
+            ListsSidebar(
+                app: model,
+                selectedID: selected?.id,
+                onSelect: { list in
+                    selected = list
+                    detailPath = []
+                },
+                onShowAccount: { detailPath = [.account] })
+        }
+        .frame(width: 320)
+        // The edge between the two: a soft shadow in light mode, and in dark mode (where a
+        // shadow on black can't be seen) a slightly lighter sidebar with a hairline edge.
+        .background(Theme.cardBackground.ignoresSafeArea())
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(Color(uiColor: .separator))
+                .frame(width: 1)
+                .ignoresSafeArea()
+        }
+        .compositingGroup()
+        .shadow(color: .black.opacity(0.18), radius: 6, x: 2, y: 0)
+        .zIndex(1)
+    }
+
+    private var detail: some View {
+        NavigationStack(path: $detailPath) {
+            Group {
+                if let selected {
+                    ListDetailView(summary: selected, app: model, onClose: { self.selected = nil })
+                        .id(selected.id)
+                } else {
+                    ContentUnavailableView(
+                        "No List Open",
+                        systemImage: "list.bullet",
+                        description: Text(showsSidebar ? "Choose a list on the left." : "Tap the sidebar button to choose a list."))
+                        .navigationTitle("")
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.25)) { showsSidebar.toggle() }
+                    } label: {
+                        Label(showsSidebar ? "Hide Lists" : "Show Lists", systemImage: "sidebar.left")
+                    }
+                }
+            }
+            .navigationDestination(for: Route.self) { route in
+                destination(for: route, model: model)
+            }
+        }
+        .tint(model.navigationTint?.color ?? Theme.link)
+        .frame(maxWidth: .infinity)
     }
 }
 
