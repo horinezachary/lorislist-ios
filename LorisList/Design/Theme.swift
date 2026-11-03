@@ -78,6 +78,26 @@ extension View {
             .toolbarBackground(Theme.navGradient, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            // The bar draws the gradient as its first colour.
+            .barUnderlay(Theme.navStart)
+    }
+
+    /// Paints everything from the screen's top edge down to the bottom of the top bar.
+    ///
+    /// On most iPhones the bar covers this already, so it never shows. On a device whose status
+    /// bar sits at the side (iPhone Duo), the bar stops short of the top edge and the page
+    /// showed through above it; this fills that strip in the bar's colour.
+    func barUnderlay<S: ShapeStyle>(_ style: S) -> some View {
+        overlay(alignment: .top) {
+            GeometryReader { proxy in
+                Rectangle()
+                    .fill(style)
+                    .frame(height: proxy.safeAreaInsets.top)
+            }
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
     }
 
     /// The grey page behind the cards.
