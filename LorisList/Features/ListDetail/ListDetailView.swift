@@ -244,6 +244,7 @@ struct ListDetailView: View {
         .toolbarBackground(barColor, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbarColorScheme(HexColor.prefersDarkText(on: summary.color) ? .light : .dark, for: .navigationBar)
+        .topAttachedNavigationBar()
         .toolbar { toolbarContent(summary: summary) }
         .tint(barText)
         // The back button takes its colour from the navigation stack, so tell it to match the bar.

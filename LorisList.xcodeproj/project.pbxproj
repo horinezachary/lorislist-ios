@@ -18,6 +18,7 @@
 		64EDD54740C5FAC3EC705EE9 /* AccountView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B46E820667493E6B5EFD9C3 /* AccountView.swift */; };
 		6B3ECA044CFCE45B3A80027C /* LorisListKit in Frameworks */ = {isa = PBXBuildFile; productRef = 45E886C313186ED39B315AFE /* LorisListKit */; };
 		6C6B20682E9A0EBC5C9C7FCB /* LinkSheets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5129AF1DBF7511B08F54088E /* LinkSheets.swift */; };
+		7BBFC076C9C54F225F5CA923 /* TopAttachedNavigationBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15E85AFA0F710A2F90636BFD /* TopAttachedNavigationBar.swift */; };
 		8D3FD34CF5B58D1CDF7683FE /* ColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8A243FD9190BCB3A45AA093 /* ColorPalette.swift */; };
 		A3B4FD58F75F941CF6AE9A39 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 263074305ED2D39BBB661E6E /* Components.swift */; };
 		AA22CB5575F4936E8DBB3BD6 /* SheetScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99ADF191E6B18BD3C713F654 /* SheetScaffold.swift */; };
@@ -32,6 +33,7 @@
 /* Begin PBXFileReference section */
 		0CAE9C382E01EF4B8A4AD383 /* LorisList.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LorisList.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		10169613FAD4C5C82090DBBC /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		15E85AFA0F710A2F90636BFD /* TopAttachedNavigationBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopAttachedNavigationBar.swift; sourceTree = "<group>"; };
 		263074305ED2D39BBB661E6E /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		2D81D7F2C18605A40AEBD03A /* SyncBanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyncBanner.swift; sourceTree = "<group>"; };
 		3C5FA4FBE4768A7C96E06832 /* ConnectivityMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectivityMonitor.swift; sourceTree = "<group>"; };
@@ -141,6 +143,7 @@
 				263074305ED2D39BBB661E6E /* Components.swift */,
 				99ADF191E6B18BD3C713F654 /* SheetScaffold.swift */,
 				10169613FAD4C5C82090DBBC /* Theme.swift */,
+				15E85AFA0F710A2F90636BFD /* TopAttachedNavigationBar.swift */,
 			);
 			path = Design;
 			sourceTree = "<group>";
@@ -277,6 +280,7 @@
 				AA22CB5575F4936E8DBB3BD6 /* SheetScaffold.swift in Sources */,
 				EC17F07D5A1476EE98C80FA2 /* SyncBanner.swift in Sources */,
 				3EFBC8DD19EE9DDF091848C2 /* Theme.swift in Sources */,
+				7BBFC076C9C54F225F5CA923 /* TopAttachedNavigationBar.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
