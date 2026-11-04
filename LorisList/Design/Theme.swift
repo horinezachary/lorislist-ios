@@ -78,6 +78,7 @@ extension View {
             .toolbarBackground(Theme.navGradient, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .topAttachedNavigationBar()
     }
 
     /// The grey page behind the cards.

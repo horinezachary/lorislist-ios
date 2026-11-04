@@ -71,12 +71,15 @@ struct LaunchView: View {
 /// Everything after sign-in: a stack of screens on iPhone, and the lists beside the open list on iPad.
 struct MainView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
+    /// Kept here rather than in either layout, so the open list stays open when the screen
+    /// switches between them (folding or unfolding, or resizing the window).
+    @State private var openList: ListSummary?
 
     var body: some View {
         if sizeClass == .regular {
-            SplitMainView()
+            SplitMainView(selected: $openList)
         } else {
-            StackMainView()
+            StackMainView(openList: $openList)
         }
     }
 }
@@ -84,7 +87,13 @@ struct MainView: View {
 /// iPhone: the home screen, with a list sliding in over it.
 private struct StackMainView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var path: [Route] = []
+    @Binding var openList: ListSummary?
+    @State private var path: [Route]
+
+    init(openList: Binding<ListSummary?>) {
+        _openList = openList
+        _path = State(initialValue: openList.wrappedValue.map { [.list($0)] } ?? [])
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -98,6 +107,13 @@ private struct StackMainView: View {
                     destination(for: route, model: model)
                 }
         }
+        .onChange(of: path) { _, path in
+            if case .list(let list) = path.first {
+                openList = list
+            } else {
+                openList = nil
+            }
+        }
         // The back button follows the stack's tint, so it matches whichever bar is showing.
         .tint(model.navigationTint?.color ?? Theme.link)
     }
@@ -110,7 +126,7 @@ private struct StackMainView: View {
 /// Side by side, the list chooser runs to the top of the screen.
 private struct SplitMainView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var selected: ListSummary?
+    @Binding var selected: ListSummary?
     @State private var detailPath: [Route] = []
     /// The list of lists can be tucked away for more room, on a small iPad or in portrait.
     @SceneStorage("showsListsSidebar") private var showsSidebar = true
