@@ -1,0 +1,54 @@
+name: Backfill releases
+
+# One-off: tags the releases that happened before the Release workflow existed and publishes a
+# GitHub release for each. Run it once from the Actions tab after this is merged; it skips any
+# tag that already exists, so running it again does nothing. Safe to delete afterwards.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag and publish the earlier releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # tag | commit on master | title
+          releases='
+          v0.1.0|956ad2b|Build the iPhone app on the Lori'"'"'s List API
+          v0.2.0|efc2d16|Open links from Lori'"'"'s List emails in the app
+          v0.2.1|a587acc|Use the iOS 17 onChange
+          v0.3.0|fa57734|Offline use, sync on reconnect and live updates
+          v0.3.1|4548e78|App Store preparation
+          v0.4.0|98d0ab1|Delete your account from the app
+          v1.0.0|21ce5b8|First App Store release
+          v1.1.0|d6a38a5|System UI rework, iPad layout and dark mode
+          v1.1.1|0b1fa57|iPhone Duo fixes
+          '
+          previous=""
+          while IFS='|' read -r tag commit title; do
+            tag=$(echo "$tag" | xargs)
+            [ -z "$tag" ] && continue
+            if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              echo "$tag already exists, skipping"
+              previous="$tag"
+              continue
+            fi
+            sha=$(git rev-parse "$commit")
+            git tag "$tag" "$sha"
+            git push origin "refs/tags/$tag"
+            args=(--title "$tag: $title" --generate-notes --verify-tag)
+            [ -n "$previous" ] && args+=(--notes-start-tag "$previous")
+            case "$tag" in v0.*) args+=(--prerelease --latest=false) ;; v1.1.1) args+=(--latest) ;; *) args+=(--latest=false) ;; esac
+            gh release create "$tag" "${args[@]}"
+            previous="$tag"
+          done <<< "$releases"
