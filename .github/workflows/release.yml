@@ -1,0 +1,68 @@
+name: Release
+
+# Every merge to master bumps the app's version and publishes a GitHub release.
+# How big the bump is comes from the commit messages and PR titles since the last release
+# (see .github/scripts/next-version.sh): "feat:" is a minor bump, "!:" or "BREAKING CHANGE"
+# a major one, and anything else a patch. Put "[skip release]" in a PR's title (or a commit
+# message) to merge without a release, e.g. for changes to CI only.
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write
+
+# One release at a time, in the order the merges landed.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    # The version-bump commit this job pushes is not a release of its own.
+    if: >-
+      ${{ !startsWith(github.event.head_commit.message, 'chore(release):')
+          && !contains(github.event.head_commit.message, '[skip release]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Work out the next version
+        id: version
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          current=$(sed -n 's/^ *MARKETING_VERSION: "\(.*\)"$/\1/p' project.yml)
+          last_tag=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || true)
+          if [ -n "$last_tag" ]; then
+            range="$last_tag..HEAD"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            range="$BEFORE..HEAD"
+          else
+            range="HEAD~1..HEAD"
+          fi
+          next=$(.github/scripts/next-version.sh "$current" "$range")
+          echo "Releasing $current -> $next (changes in $range)"
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Bump the version, commit and tag
+        env:
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          sed -i "s/^\( *MARKETING_VERSION: \)\".*\"$/\1\"$NEXT\"/" project.yml
+          sed -i "s/MARKETING_VERSION = [^;]*;/MARKETING_VERSION = $NEXT;/" LorisList.xcodeproj/project.pbxproj
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "chore(release): v$NEXT"
+          git tag "v$NEXT"
+          git push origin HEAD:master "v$NEXT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: gh release create "v$NEXT" --title "v$NEXT" --generate-notes
