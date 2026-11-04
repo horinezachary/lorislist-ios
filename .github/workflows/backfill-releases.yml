@@ -44,8 +44,10 @@ jobs:
               continue
             fi
             sha=$(git rev-parse "$commit")
-            git tag "$tag" "$sha"
-            git push origin "refs/tags/$tag"
+            # Through the API rather than git push: GitHub refuses a pushed tag whose commit has
+            # different workflow files unless the token has the workflows permission, which the
+            # Actions token can't get.
+            gh api "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/tags/$tag" -f sha="$sha" >/dev/null
             args=(--title "$tag: $title" --generate-notes --verify-tag)
             [ -n "$previous" ] && args+=(--notes-start-tag "$previous")
             case "$tag" in v0.*) args+=(--prerelease --latest=false) ;; v1.1.1) args+=(--latest) ;; *) args+=(--latest=false) ;; esac
