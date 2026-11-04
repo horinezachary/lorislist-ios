@@ -17,31 +17,58 @@ extension View {
 
 private struct TopAttachedNavigationBar: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> Controller { Controller() }
-    func updateUIViewController(_ controller: Controller, context: Context) { controller.attachBar() }
+    func updateUIViewController(_ controller: Controller, context: Context) { controller.install() }
 
     final class Controller: UIViewController {
         override func viewWillAppear(_ animated: Bool) {
             super.viewWillAppear(animated)
-            attachBar()
+            install()
         }
 
-        override func viewDidLayoutSubviews() {
-            super.viewDidLayoutSubviews()
-            attachBar()
+        /// Puts a watcher in the navigation controller's own view, so the strip is measured again
+        /// whenever that view changes size or safe area (folding, unfolding, rotating), not only
+        /// when this screen happens to lay out.
+        func install() {
+            guard let navigation = navigationController else { return }
+            if !navigation.view.subviews.contains(where: { $0 is Watcher }) {
+                let watcher = Watcher(frame: navigation.view.bounds)
+                watcher.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                watcher.isUserInteractionEnabled = false
+                watcher.navigation = navigation
+                navigation.view.insertSubview(watcher, at: 0)
+            }
+            Watcher.attachBar(of: navigation)
+        }
+    }
+
+    final class Watcher: UIView {
+        weak var navigation: UINavigationController?
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            scheduleAttach()
         }
 
-        override func viewSafeAreaInsetsDidChange() {
-            super.viewSafeAreaInsetsDidChange()
-            attachBar()
+        override func safeAreaInsetsDidChange() {
+            super.safeAreaInsetsDidChange()
+            scheduleAttach()
         }
 
-        func attachBar() {
-            guard let navigation = navigationController, let window = navigation.view.window else { return }
+        /// After the current layout pass, so the bar has already moved to its new place.
+        private func scheduleAttach() {
+            DispatchQueue.main.async { [weak self] in
+                guard let navigation = self?.navigation else { return }
+                Watcher.attachBar(of: navigation)
+            }
+        }
+
+        static func attachBar(of navigation: UINavigationController) {
+            guard let window = navigation.view.window else { return }
             let bar = navigation.navigationBar
             // The gap between the top of the navigation controller's view and its bar, when no
             // status bar already claims it. Measured without the inset this sets, so it stays put.
             let gap = window.safeAreaInsets.top == 0 && !bar.isHidden
-                ? bar.convert(bar.bounds, to: navigation.view).minY - (navigation.view.safeAreaInsets.top - navigation.additionalSafeAreaInsets.top)
+                ? bar.frame.minY - (navigation.view.safeAreaInsets.top - navigation.additionalSafeAreaInsets.top)
                 : 0
             let inset = max(0, gap)
             if navigation.additionalSafeAreaInsets.top != inset {
